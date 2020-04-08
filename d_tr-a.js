@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         D.TR-A
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
 // @description  Data.TypeRacer profiles: regroup Awards
