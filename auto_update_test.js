@@ -3,7 +3,7 @@
 // @description  testing auto-update
 // @namespace    http://tampermonkey.net/
 // @author       newbie
-// @version      1.0
+// @version      1.1
 // @updateURL    https://github.com/mygithubaccount/test/raw/master/test.user.js
 // @downloadURL  https://github.com/mygithubaccount/test/raw/master/test.user.js
 // @match        http://awebsite.com/*
@@ -14,3 +14,5 @@
 // @grant        GM_getResourceURL
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
+
+alert('updated');
