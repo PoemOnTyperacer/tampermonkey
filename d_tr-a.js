@@ -13,6 +13,7 @@
 // ==/UserScript==
 
 'use strict';
+alert('auto update successful');
 
 function kRows(k)
 {
