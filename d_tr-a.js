@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         D.TR-A
+// @name         Typeracer Awards Organizer
 // @namespace    http://tampermonkey.net/
-// @version      1.4.1
+// @version      1.4.2
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
 // @description  Data.TypeRacer profiles: regroup Awards
@@ -11,6 +11,16 @@
 // @require      http://code.jquery.com/jquery-3.4.1.min.js
 // @run-at document-finish
 // ==/UserScript==
+
+/*Changelog:
+==========================================================================================
+1.3   (03-08-20):   initial release
+1.4.1 (04-08-20):   added awards sub-totals for daily/weekly/monthly/yearly categories
+1.4.2 (04-08-20):   added margins to the menus
+                    fixed opening multiple menus at once
+                    changed script name to "Typeracer Awards Organizer"
+==========================================================================================*/
+
 
 'use strict';
 
@@ -102,7 +112,8 @@ grid-gap: 5px;
 }
 .menu__items .span__title {
 font-size: 12pt;
-color:#60AFFE;
+color: #60AFFE;
+margin: 5px;
 }
 .menu--active {
 opacity: 1;
@@ -269,6 +280,7 @@ class Menu {
   }
 
   expand () {
+    closeOpenMenus();
     if (this._expanded) {
       return;
     }
@@ -446,6 +458,7 @@ for(let n=0;n<3;n++)
     }
 }
 
+var menus=[];
 //Associate HTML and Js. Delayed to give time to create the new HTML elements
 setTimeout(function(){
     for(let n=0;n<3;n++)
@@ -453,6 +466,18 @@ setTimeout(function(){
         if(!draw_icon[n])
             continue;
         badge[n]=document.getElementById('badge_'+n);
-        new Menu(n);
+        menus.push(new Menu(n));
     }
 },10);
+
+function closeOpenMenus()
+{
+    for(let n=0;n<menus.length;n++)
+    {
+        if(menus[n]!={})
+        {
+            if(menus[n]._expanded)
+                menus[n].collapse();
+        }
+    }
+}
