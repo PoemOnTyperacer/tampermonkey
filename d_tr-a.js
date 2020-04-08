@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         D.TR-A
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.4.1
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
 // @description  Data.TypeRacer profiles: regroup Awards
@@ -191,9 +191,10 @@ for(let n=0;n<3;n++)
     let medal_grids_html='';
     for(let m=0;m<4;m++)
     {
-        if(medal_count[n][m+1]>0)
+        let n_m_count=medal_count[n][m+1]
+        if(n_m_count>0)
         {
-            medal_grids_html+=`<h1 class="span__title">`+timespans[m]+`</h1>
+            medal_grids_html+=`<h1 class="span__title">`+timespans[m]+` (`+n_m_count+`)</h1>
 <span class="medal__grid" id="medal_grid_`+n+`_`+m+`">`+expanded_medal_html[n][m]+`</span>`
         }
     }
