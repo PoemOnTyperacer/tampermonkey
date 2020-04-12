@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: More Race Details indev
 // @namespace    http://tampermonkey.net/
-// @version      1.2.4
+// @version      1.2.5
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @description  Adds more values to data.typeracer races details (points/exact speed)
@@ -11,14 +11,15 @@
 // ==/UserScript==
 
 /*Changelog:
-=====================================================================================================================
+=================================================================================================================
 1.1.0 (04-08-20):   Initial release
 1.2.1 (04-12-20):   Added unlagged and adjusted speed values
                     Forced 2 decimals for speed/3 for adjusted/none for points
                     Changed name "to Typeracer: More Race Details"
 1.2.4 (04-12-20):   Fixed replay button & margins
                     Reverse lag is now highlighted (eg. https://data.typeracer.com/pit/result?id=%7Ctr:poem%7C69527)
-=====================================================================================================================*/
+1.2.5 (04-13-20):   Fixed reverse lag detection
+=================================================================================================================*/
 
 var race_log = '';
 function consecutiveLogNumbersAfter(k)
@@ -54,7 +55,6 @@ window.addEventListener('load', function() {
 	// Adjusted speed
 	var quote_length = $('.fullTextStr')[0].innerText.split('').length;
 	var t_total = quote_length/unlagged_speed;
-    unlagged_speed = unlagged_speed.toFixed(2); //no more need for exact unlagged value
     var start_time_ms;
     if(race_log[0]=='\\')
     {
@@ -66,7 +66,7 @@ window.addEventListener('load', function() {
     else
         start_time_ms=consecutiveLogNumbersAfter(1);
     var t_start=parseInt(start_time_ms)/12000;
-    console.log('t_start='+t_start+', t_total='+t_total+', quote_length='+quote_length);
+//     console.log('t_start='+t_start+', t_total='+t_total+', quote_length='+quote_length);
     var adjusted_speed = ((quote_length-1)/(t_total-t_start)).toFixed(3);
 
 	var points = 0;
@@ -101,12 +101,15 @@ window.addEventListener('load', function() {
 				if(data[i].gn==race_number) // In case timespan contained multiple races
 				{
 					// Display values
-                    var registered_speed = data[i].wpm.toFixed(2);
-                    var points = Math.round(data[i].pts);
-                    var ghost_button_html = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2) > a')[0].outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
+                    var registered_speed = parseFloat(data[i].wpm);
                     var reverse_lag_style = '';
                     if(unlagged_speed < registered_speed)
                         reverse_lag_style=' color:red; font-weight: 1000;';
+//                     console.log('unlagged='+unlagged_speed+'; registered='+registered_speed+'; unlagged<registered: '+(unlagged_speed<registered_speed).toString()+'; typeof unlagged: '+typeof unlagged_speed+'; typeof registered: '+typeof registered_speed);
+                    registered_speed = registered_speed.toFixed(2);
+                    unlagged_speed = unlagged_speed.toFixed(2);
+                    var points = Math.round(data[i].pts);
+                    var ghost_button_html = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2) > a')[0].outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
 					$('.raceDetails > tbody').append($('<tr><td>Points</td><td>'+points+'</td></tr>'));
 					$('.raceDetails > tbody > tr:nth-child('+(univ_index+4)+')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;'+reverse_lag_style+'"><span>'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM ('+start_time_ms+'ms start)</td></tr><br>';
 				}
