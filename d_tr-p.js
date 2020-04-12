@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: More Race Details
 // @namespace    http://tampermonkey.net/
-// @version      1.2.1
+// @version      1.2.2
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @description  Adds more values to data.typeracer races details (points/exact speed)
@@ -11,12 +11,14 @@
 // ==/UserScript==
 
 /*Changelog:
-==========================================================================================
+=================================================================================================================
 1.1.0 (04-08-20):   Initial release
 1.2.1 (04-12-20):   Added unlagged and adjusted speed values
                     Forced 2 decimals for speed/3 for adjusted/none for points
-                    Changed name to "Typeracer: More Race Details"
-==========================================================================================*/
+                    Changed name "to Typeracer: More Race Details"
+1.2.2 (04-12-20):   Fixed replay button & margins
+                    Reverse lag is now highlighted (eg. https://data.typeracer.com/pit/result?id=|tr:poem|78354)
+=================================================================================================================*/
 
 var race_log = '';
 function consecutiveLogNumbersAfter(k)
@@ -61,7 +63,7 @@ window.addEventListener('load', function() {
     else
         start_time_ms=consecutiveLogNumbersAfter(1);
     var t_start=parseInt(start_time_ms)/12000;
-    //console.log('t_start='+t_start+', t_total='+t_total+', quote_length='+quote_length);
+    console.log('t_start='+t_start+', t_total='+t_total+', quote_length='+quote_length);
     var adjusted_speed = ((quote_length-1)/(t_total-t_start)).toFixed(3);
 
 	var points = 0;
@@ -98,9 +100,12 @@ window.addEventListener('load', function() {
 					// Display values
                     var registered_speed = data[i].wpm.toFixed(2);
                     var points = Math.round(data[i].pts);
-                    var ghost_button_html = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2) > a')[0].outerHTML
+                    var ghost_button_html = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2) > a')[0].outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
+                    var reverse_lag_style = '';
+                    if(unlagged_speed < registered_speed)
+                        reverse_lag_style=' color:red; font-weight: 1000;';
 					$('.raceDetails > tbody').append($('<tr><td>Points</td><td>'+points+'</td></tr>'));
-					$('.raceDetails > tbody > tr:nth-child('+(univ_index+4)+')')[0].outerHTML = '<br><tr><td>Registered</td><td><span style="vertical-align: top; line-height: 24px;">'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM</td></tr><br>';
+					$('.raceDetails > tbody > tr:nth-child('+(univ_index+4)+')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;'+reverse_lag_style+'"><span>'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM</td></tr><br>';
 				}
 			}
 			});
