@@ -108,7 +108,7 @@ window.addEventListener('load', function() {
                     if(unlagged_speed < registered_speed)
                         reverse_lag_style=' color:red; font-weight: 1000;';
 					$('.raceDetails > tbody').append($('<tr><td>Points</td><td>'+points+'</td></tr>'));
-					$('.raceDetails > tbody > tr:nth-child('+(univ_index+4)+')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;'+reverse_lag_style+'"><span>'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM</td></tr><br>';
+					$('.raceDetails > tbody > tr:nth-child('+(univ_index+4)+')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;'+reverse_lag_style+'"><span>'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM ('+start_time_ms+'ms start)</td></tr><br>';
 				}
 			}
 			});
