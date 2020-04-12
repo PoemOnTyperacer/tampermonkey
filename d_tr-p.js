@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Typeracer: More Race Details
+// @name         Typeracer: More Race Details indev
 // @namespace    http://tampermonkey.net/
-// @version      1.2.2
+// @version      1.2.4
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @description  Adds more values to data.typeracer races details (points/exact speed)
@@ -11,14 +11,14 @@
 // ==/UserScript==
 
 /*Changelog:
-=================================================================================================================
+=====================================================================================================================
 1.1.0 (04-08-20):   Initial release
 1.2.1 (04-12-20):   Added unlagged and adjusted speed values
                     Forced 2 decimals for speed/3 for adjusted/none for points
                     Changed name "to Typeracer: More Race Details"
-1.2.2 (04-12-20):   Fixed replay button & margins
-                    Reverse lag is now highlighted (eg. https://data.typeracer.com/pit/result?id=|tr:poem|78354)
-=================================================================================================================*/
+1.2.4 (04-12-20):   Fixed replay button & margins
+                    Reverse lag is now highlighted (eg. https://data.typeracer.com/pit/result?id=%7Ctr:poem%7C69527)
+=====================================================================================================================*/
 
 var race_log = '';
 function consecutiveLogNumbersAfter(k)
@@ -34,6 +34,9 @@ function consecutiveLogNumbersAfter(k)
 // Wait for page loading to access replay
 window.addEventListener('load', function() {
     setTimeout(function(){
+
+    //Cleaner detail
+    document.querySelector('.raceDetails > tbody > tr:nth-child(2) > td').innerText = "Race";
 
     //find and grab log
     let script=document.getElementsByTagName('script');
