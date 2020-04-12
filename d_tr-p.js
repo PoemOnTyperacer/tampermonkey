@@ -1,63 +1,112 @@
 // ==UserScript==
-// @name         D.TR-P
+// @name         Typeracer: More Race Details indev
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2.1
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
-// @description  Data.TypeRacer-Points
+// @description  Adds more values to data.typeracer races details (points/exact speed)
 // @author       poem
 // @match        https://data.typeracer.com/pit/result*
-// @grant        GM_getValue
-// @grant        GM_setValue
 // @require      http://code.jquery.com/jquery-3.4.1.min.js
 // ==/UserScript==
 
-// var c,f,s,n,start_time,done,j=0,0,0,0,'',false,0;
-// var race_log = document.getElementsByTagName('script')[7].innerText.split(',')[3].split('\|')[0];
-// alert(race_log);
-// while(j<race_log.length&&!done)
-// {
-//     if(start_time==''){
-//         if(race_log[j].isInteger())
-//             dqslf;
-//         else
-//             n++;
-//         j++;
-//     }
-// }
+/*Changelog:
+==========================================================================================
+1.1.0 (04-08-20):   Initial release
+1.2.1 (04-12-20):   Added unlagged and adjusted speed values
+                    Forced 2 decimals for speed/3 for adjusted/none for points
+                    Changed name "to Typeracer: More Race Details"
+==========================================================================================*/
 
-var race_universe = "play"
-if($('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(1)')[0].innerText=="Universe")
-	race_universe = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2)')[0].innerText;
-var player_name = /.*\((.*)\)$/.exec($('.raceDetails > tbody > tr:nth-child(1) > td:nth-child(2)')[0].innerText)[1];
-var race_number = $('.raceDetails > tbody > tr:nth-child(2) > td:nth-child(2)')[0].innerText;
-var date_str = $('.raceDetails > tbody > tr:nth-child(3) > td:nth-child(2)')[0].innerText;
-var date_obj = new Date(date_str);
-var race_unix_num = parseInt((date_obj.getTime()/1000).toFixed(0));
-var unix_start = (race_unix_num-1).toString();
-var unix_end = (race_unix_num+1).toString();
-var race_data_url = 'https://data.typeracer.com/games?playerId=tr:'+player_name+'&universe='+race_universe+'&startDate='+unix_start+'&endDate='+unix_end;
-fetch(race_data_url)
-	.then(response => {
+var race_log = '';
+function consecutiveLogNumbersAfter(k)
+{
+    let ofTheJedi='';
+    while(k<race_log.length&&/^\d+$/.test(race_log[k]))
+    {
+        ofTheJedi+=race_log[k++]
+    }
+    return ofTheJedi;
+}
+
+// Wait for page loading to access replay
+window.addEventListener('load', function() {
+    setTimeout(function(){
+
+    //find and grab log
+    let script=document.getElementsByTagName('script');
+    for(let m=0; m<script.length;m++)
+    {
+        if(script[m].innerText.includes("var typingLog"))
+            race_log = script[m].innerText.split(',')[3].split('\|')[0];
+    }
+
+	// Unlagged speed
+	document.getElementsByClassName('ImageButton')[4].click();
+	var unlagged_speed = parseFloat(document.getElementsByClassName('statusIndicator')[1].title.split(' WPM')[0]);
+	document.getElementsByClassName('ImageButton')[1].click();
+
+	// Adjusted speed
+	var quote_length = $('.fullTextStr')[0].innerText.split('').length;
+	var t_total = quote_length/unlagged_speed;
+    unlagged_speed = unlagged_speed.toFixed(2); //no more need for exact unlagged value
+    var start_time_ms;
+    if(race_log[0]=='\\')
+    {
+        if(race_log[1]=='b')
+            start_time_ms=consecutiveLogNumbersAfter(3);
+        else
+            start_time_ms=consecutiveLogNumbersAfter(6);
+    }
+    else
+        start_time_ms=consecutiveLogNumbersAfter(1);
+    var t_start=parseInt(start_time_ms)/12000;
+    //console.log('t_start='+t_start+', t_total='+t_total+', quote_length='+quote_length);
+    var adjusted_speed = ((quote_length-1)/(t_total-t_start)).toFixed(3);
+
+	var points = 0;
+	var lagged_speed = 0;
+
+	// Race context
+	var [race_universe,univ_index] = ["play",0];
+	if($('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(1)')[0].innerText=="Universe")
+    {
+		race_universe = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2)')[0].innerText;
+        univ_index++;
+    }
+	var player_name = /.*\((.*)\)$/.exec($('.raceDetails > tbody > tr:nth-child(1) > td:nth-child(2)')[0].innerText)[1];
+	var race_number = $('.raceDetails > tbody > tr:nth-child(2) > td:nth-child(2)')[0].innerText;
+	var date_str = $('.raceDetails > tbody > tr:nth-child(3) > td:nth-child(2)')[0].innerText;
+
+	// Race timespan
+	var date_obj = new Date(date_str);
+	var race_unix_num = parseInt((date_obj.getTime()/1000).toFixed(0));
+	var unix_start = (race_unix_num-1).toString();
+	var unix_end = (race_unix_num+1).toString();
+
+	// Fetch race data from timespan API (exact lagged speed, points)
+	var race_data_url = 'https://data.typeracer.com/games?playerId=tr:'+player_name+'&universe='+race_universe+'&startDate='+unix_start+'&endDate='+unix_end;
+	fetch(race_data_url)
+		.then(response => {
 		if (response.status !== 200)
 			return;
 		response.json().then(data => {
 			for(var i=0;i<data.length;i++)
 			{
-				if(data[i].gn==race_number)
+				if(data[i].gn==race_number) // In case timespan contained multiple races
 				{
-					$('.raceDetails > tbody').append($('<tr><td>Points</td><td>'+data[i].pts.toString()+'</td></tr>'));
-					$('.raceDetails > tbody > tr:nth-child(4) > td > span')[0].innerHTML = data[i].wpm.toString()+" WPM";
+					// Display values
+                    var registered_speed = data[i].wpm.toFixed(2);
+                    var points = Math.round(data[i].pts);
+                    var ghost_button_html = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2) > a')[0].outerHTML
+					$('.raceDetails > tbody').append($('<tr><td>Points</td><td>'+points+'</td></tr>'));
+					$('.raceDetails > tbody > tr:nth-child('+(univ_index+4)+')')[0].outerHTML = '<br><tr><td>Registered</td><td><span style="vertical-align: top; line-height: 24px;">'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM</td></tr><br>';
 				}
-				else
-					alert(atob("d29haCEgd2hvZXZlciBjb21wbGV0ZWQgdGhpcyByYWNlIGFsc28gY29tcGxldGVkIGFub3RoZXIgcmFjZSBSRUFMTFkgbm90IGxvbmcgYmVmb3JlIG9yIGFmdGVyIHRoaXMgb25lISBCcm8hIFdhcyB0aGF0IHlvdSBicm8/ISBUaGF0J3MgcHJldHR5IGNvb2wgaWYgeW91IGFzayBtZSwgYnJvLiBHTkFSTFkhIE9rIGJybywgSSB0aGluayBJJ2xsIHNlZSBteXNlbGYgb3V0IG5vdyEgKGFsc28gZHcgYnJvLCB5b3UncmUgbm90IGJlaW5nIGhhY2tlZCEgSWYgeW91IHJlYWxseSBkb24ndCBrbm93IHdoZXJlIHRoaXMgY2FtZSBmcm9tLCB5b3Ugc2hvdWxkIGFzayB5b3VyIGJlc3QgZnJpZW5kIChJIHdvdWxkIGV2ZW4gZGFyZSB0byBzYXkuLi4geW91ciBicm8pIHBvZW0hIEkgc3dlYXIgaSBkaWRuJ3QganVzdCBpbXBsZW1lbnQgdGhpcyB0byB0cm9sbCB5b3UgYnJvLCB0aGVyZSB3YXMgYSBnb29kIHJlYXNvbiA6KCB5b3UgZ290dGEgYmVsaWV2ZSBtZSBicm9vbyA6KCAod29vcHNpZSBJIGZvcmdvdCB0byBjbG9zZSBvbmUgc2V0IG9mIHBhcmVudGhlc2VzKSAoLi5icm8pKQ=="));
 			}
+			});
+		})
+		.catch(err => {
+			alert("[D.TR-P] error");
 		});
-	})
-	.catch(err => {
-		alert("[D.TR-P] error");
-	});
-
-// window.addEventListener('load', function() {
-//     // your code here
-// }, false);
+    },100);
+}, false);
