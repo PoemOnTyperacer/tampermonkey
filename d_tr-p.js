@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Typeracer: More Race Details indev
+// @name         Typeracer: More Race Details
 // @namespace    http://tampermonkey.net/
 // @version      1.2.1
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
@@ -15,7 +15,7 @@
 1.1.0 (04-08-20):   Initial release
 1.2.1 (04-12-20):   Added unlagged and adjusted speed values
                     Forced 2 decimals for speed/3 for adjusted/none for points
-                    Changed name "to Typeracer: More Race Details"
+                    Changed name to "Typeracer: More Race Details"
 ==========================================================================================*/
 
 var race_log = '';
