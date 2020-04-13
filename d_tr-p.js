@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Typeracer: More Race Details indev
+// @name         Typeracer: More Race Details
 // @namespace    http://tampermonkey.net/
 // @version      1.2.5
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
