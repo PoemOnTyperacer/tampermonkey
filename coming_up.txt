@@ -1,2 +1,3 @@
 Script idea: quick ghost button from leaderboard https://cdn.discordapp.com/attachments/540537709823787059/698398030289961020/unknown.png
 D.tr-p: unlagged/ adjusted speeds
+fix profiles in other universes
