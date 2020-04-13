@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: More Race Details
 // @namespace    http://tampermonkey.net/
-// @version      1.2.5
+// @version      1.2.6
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @description  Adds more values to data.typeracer races details (points/exact speed)
@@ -19,6 +19,8 @@
 1.2.4 (04-12-20):   Fixed replay button & margins
                     Reverse lag is now highlighted (eg. https://data.typeracer.com/pit/result?id=%7Ctr:poem%7C69527)
 1.2.5 (04-13-20):   Fixed reverse lag detection
+1.2.6 (04-13-20):   Fixed non-play universes
+                    Moved error messages to console
 =================================================================================================================*/
 
 var race_log = '';
@@ -73,7 +75,7 @@ window.addEventListener('load', function() {
 	var lagged_speed = 0;
 
 	// Race context
-	var [race_universe,univ_index] = ["play",0];
+	var [race_universe,univ_index] = ["play",4];
 	if($('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(1)')[0].innerText=="Universe")
     {
 		race_universe = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2)')[0].innerText;
@@ -109,15 +111,15 @@ window.addEventListener('load', function() {
                     registered_speed = registered_speed.toFixed(2);
                     unlagged_speed = unlagged_speed.toFixed(2);
                     var points = Math.round(data[i].pts);
-                    var ghost_button_html = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2) > a')[0].outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
+                    var ghost_button_html = $('.raceDetails > tbody > tr:nth-child('+univ_index+') > td:nth-child(2) > a')[0].outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
 					$('.raceDetails > tbody').append($('<tr><td>Points</td><td>'+points+'</td></tr>'));
-					$('.raceDetails > tbody > tr:nth-child('+(univ_index+4)+')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;'+reverse_lag_style+'"><span>'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM ('+start_time_ms+'ms start)</td></tr><br>';
+					$('.raceDetails > tbody > tr:nth-child('+univ_index+')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;'+reverse_lag_style+'"><span>'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM ('+start_time_ms+'ms start)</td></tr><br>';
 				}
 			}
 			});
 		})
 		.catch(err => {
-			alert("[D.TR-P] error");
+			console.log("[D.TR-P] error: "+err);
 		});
     },100);
 }, false);
