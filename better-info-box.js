@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Info Box Data
 // @namespace    http://tampermonkey.net/
-// @version      0.4
+// @version      0.5
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @description  Last 10 avg to two decimal places & add commas to point and race counts
@@ -12,6 +12,7 @@
 // ==/UserScript==
 
 // Global text boxes variables
+var avgDisplay;
 var racesDisplay;
 var pointsDisplay;
 
@@ -38,13 +39,18 @@ function exactAvg()
 {
     let displayName = document.getElementsByClassName('userNameLabel')[0].innerText;
     let playerName = getUsernameFromDisplayName(displayName);
+    if(playerName=='Guest')
+    {
+        avgDisplay.innerText=document.getElementsByClassName('mainUserInfoBoxWpm')[0].innerText;
+        return;
+    }
 	GM_xmlhttpRequest ( {
 		method: "GET",
 		url: "https://data.typeracer.com/users?id=tr:"+playerName,
 		onload: function (response) {
 			let data = JSON.parse(response.responseText);
 			let current_avg = data.tstats.recentAvgWpm;
-            document.getElementsByClassName('mainUserInfoBoxWpm2')[0].innerText=current_avg.toFixed(2);
+            avgDisplay.innerText=current_avg.toFixed(2);
 		}
 	});
 }
@@ -64,7 +70,11 @@ window.addEventListener('load', function()
     setTimeout(function(){
 
 //         Create copies of boxes, and hide originals
-        document.getElementsByClassName('mainUserInfoBoxWpm')[0].outerHTML='<div class="mainUserInfoBoxWpm" style="display: none;"></div><div class="mainUserInfoBoxWpm2" style="padding-right: 4px;"></div>';
+        let originalAvg = document.getElementsByClassName('mainUserInfoBoxWpm')[0];
+        originalAvg.style.display = 'none';
+        avgDisplay = document.createElement('div');
+        avgDisplay.style.paddingRight = '4px';
+        originalAvg.parentNode.appendChild(avgDisplay);
 
         let dataRow=document.getElementsByClassName('datarow')[0];
 
@@ -76,10 +86,8 @@ window.addEventListener('load', function()
         pointsDisplay.style = "cursor: help;";
         dataRow.appendChild(pointsDisplay);
 
-        let originalRaces = dataRow.childNodes[3];
-        let originalPoints = dataRow.childNodes[4];
-        originalRaces.outerHTML = originalRaces.outerHTML.split('<td>').join('<td style="display: none;">');
-        originalPoints.outerHTML = originalPoints.outerHTML.split('">').join(' display: none;">');
+        dataRow.childNodes[3].style.display = "none";
+        dataRow.childNodes[4].style.display = "none";
 
 //         initial refresh then intervals
         exactAvg();
