@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Info Box Data
 // @namespace    http://tampermonkey.net/
-// @version      0.6
+// @version      0.7
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @description  Last 10 avg to two decimal places & add commas to point and race counts
@@ -16,6 +16,7 @@
 =======================================
 0.5.0 (04-17-20):   Guest support
 0.6.0 (04-18-20):   Pit Stop support
+0.7.0 (04-18-20):   CPM support
 =======================================*/
 
 // Global text boxes variables
@@ -34,6 +35,19 @@ function $$(selector, context) {
 
 function numberWithCommas(x) {
     return x.replace(numberCommasRegex, ",");
+}
+
+// Convert WPM if CPM mode is used
+function speedFormat(wpm,isPitStop)
+{
+    if(isPitStop)
+        return wpm;
+    else
+    {
+        if(document.querySelector('[title="average speed info"]').innerText=='CPM')
+            return wpm*5;
+        return wpm;
+    }
 }
 
 // Get username from display name (eg. "Keegan Tournay (keegant)" > "keegant", or "poem" > "poem")
@@ -60,7 +74,7 @@ function exactAvg(displayNameClass,pitStopAppendix='')
 		onload: function (response) {
 			let data = JSON.parse(response.responseText);
 			let current_avg = data.tstats.recentAvgWpm;
-            avgDisplay.innerHTML=current_avg.toFixed(2)+pitStopAppendix;
+            avgDisplay.innerHTML=speedFormat(current_avg,!pitStopAppendix=='').toFixed(2)+pitStopAppendix;
 		}
 	});
 }
