@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Typeracer: Better Info Box Data
 // @namespace    http://tampermonkey.net/
-// @version      0.7
+// @version      0.8
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
-// @description  Last 10 avg to two decimal places & add commas to point and race counts
+// @description  Last 10 avg to two decimal places, & proper thousands separator formatting, in the User Info Box
 // @author       poem
 // @match        https://play.typeracer.com/*
 // @match        https://data.typeracer.com/pit/*
@@ -13,19 +13,26 @@
 // ==/UserScript==
 
 /*Changelog:
-=======================================
+==============================================================================
 0.5.0 (04-17-20):   Guest support
 0.6.0 (04-18-20):   Pit Stop support
 0.7.0 (04-18-20):   CPM support
-=======================================*/
+0.8.0 (04-18-20):   All universes support
+                    Proper commas formatting in avg (for 1000+cpm/wpm typists)
+==============================================================================*/
 
 // Global text boxes variables
 var avgDisplay;
 var racesDisplay;
 var pointsDisplay;
 
-const numberCommasRegex = /\B(?=(\d{3})+(?!\d))/g;
+const integerCommasRegex = /\B(?=(\d{3})+(?!\d))/g;
 const displayNameRegex = /.*\((.*)\)$/;
+
+var accountDataUrlBase = 'https://data.typeracer.com/users?id=tr:';
+let match = /.*(universe=[^&]*)/.exec(window.location.href);
+if(match!=null)
+    accountDataUrlBase = 'https://data.typeracer.com/users?'+match[1]+'&id=tr:';
 
 function $$(selector, context) {
   context = context || document;
@@ -33,12 +40,20 @@ function $$(selector, context) {
   return Array.prototype.slice.call(elements);
 }
 
-function numberWithCommas(x) {
-    return x.replace(numberCommasRegex, ",");
+// Adds proper thousands separators to an int
+function formatInteger(n) {
+    return n.replace(integerCommasRegex, ",");
+}
+
+// Add thousands separators to and trim an exact speed to two decimal places
+function formatSpeed(x) {
+    let integerPartStr = Math.trunc(x).toString();
+    let decimalPart = x%1;
+    return formatInteger(integerPartStr)+decimalPart.toFixed(2).substring(1);
 }
 
 // Convert WPM if CPM mode is used
-function speedFormat(wpm,isPitStop)
+function wpmOrCpm(wpm,isPitStop)
 {
     if(isPitStop)
         return wpm;
@@ -70,19 +85,20 @@ function exactAvg(displayNameClass,pitStopAppendix='')
     }
 	GM_xmlhttpRequest ( {
 		method: "GET",
-		url: "https://data.typeracer.com/users?id=tr:"+playerName,
+		url: accountDataUrlBase+playerName,
 		onload: function (response) {
 			let data = JSON.parse(response.responseText);
 			let current_avg = data.tstats.recentAvgWpm;
-            avgDisplay.innerHTML=speedFormat(current_avg,!pitStopAppendix=='').toFixed(2)+pitStopAppendix;
+            avgDisplay.innerHTML=formatSpeed(wpmOrCpm(current_avg,!pitStopAppendix==''))+pitStopAppendix;
 		}
 	});
 }
 
+// Get, format and display latest race and point counts
 function addCommas(dataRowClass)
 {
-    racesDisplay.innerText = numberWithCommas(document.querySelector("."+dataRowClass+" > td:nth-child(4)").innerText);
-    pointsDisplay.innerText = numberWithCommas(document.querySelector("."+dataRowClass+" > td:nth-child(5)").innerText);
+    racesDisplay.innerText = formatInteger(document.querySelector("."+dataRowClass+" > td:nth-child(4)").innerText);
+    pointsDisplay.innerText = formatInteger(document.querySelector("."+dataRowClass+" > td:nth-child(5)").innerText);
 }
 
 
