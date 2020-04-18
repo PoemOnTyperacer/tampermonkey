@@ -34,12 +34,6 @@ let match = /.*(universe=[^&]*)/.exec(window.location.href);
 if(match!=null)
     accountDataUrlBase = 'https://data.typeracer.com/users?'+match[1]+'&id=tr:';
 
-function $$(selector, context) {
-  context = context || document;
-  var elements = context.querySelectorAll(selector);
-  return Array.prototype.slice.call(elements);
-}
-
 // Adds proper thousands separators to an int
 function formatInteger(n) {
     return n.replace(integerCommasRegex, ",");
