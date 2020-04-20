@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: More Race Details
 // @namespace    http://tampermonkey.net/
-// @version      1.2.6
+// @version      1.2.7
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
 // @description  Adds more values to data.typeracer races details (points/exact speed)
@@ -21,6 +21,7 @@
 1.2.5 (04-13-20):   Fixed reverse lag detection
 1.2.6 (04-13-20):   Fixed non-play universes
                     Moved error messages to console
+1.2.7 (04-20-20):   Added Ping value
 =================================================================================================================*/
 
 var race_log = '';
@@ -56,7 +57,7 @@ window.addEventListener('load', function() {
 
 	// Adjusted speed
 	var quote_length = $('.fullTextStr')[0].innerText.split('').length;
-	var t_total = quote_length/unlagged_speed;
+	var t_total = quote_length/unlagged_speed; // in seconds/12
     var start_time_ms;
     if(race_log[0]=='\\')
     {
@@ -67,8 +68,7 @@ window.addEventListener('load', function() {
     }
     else
         start_time_ms=consecutiveLogNumbersAfter(1);
-    var t_start=parseInt(start_time_ms)/12000;
-//     console.log('t_start='+t_start+', t_total='+t_total+', quote_length='+quote_length);
+    var t_start=parseInt(start_time_ms)/12000; // s/12
     var adjusted_speed = ((quote_length-1)/(t_total-t_start)).toFixed(3);
 
 	var points = 0;
@@ -104,16 +104,19 @@ window.addEventListener('load', function() {
 				{
 					// Display values
                     var registered_speed = parseFloat(data[i].wpm);
+
+                    var t_total_lagged = quote_length/registered_speed; // s/12
+                    var ping = Math.round((t_total_lagged-t_total)*12000); // ms
+
                     var reverse_lag_style = '';
                     if(unlagged_speed < registered_speed)
                         reverse_lag_style=' color:red; font-weight: 1000;';
-//                     console.log('unlagged='+unlagged_speed+'; registered='+registered_speed+'; unlagged<registered: '+(unlagged_speed<registered_speed).toString()+'; typeof unlagged: '+typeof unlagged_speed+'; typeof registered: '+typeof registered_speed);
                     registered_speed = registered_speed.toFixed(2);
                     unlagged_speed = unlagged_speed.toFixed(2);
                     var points = Math.round(data[i].pts);
                     var ghost_button_html = $('.raceDetails > tbody > tr:nth-child('+univ_index+') > td:nth-child(2) > a')[0].outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
 					$('.raceDetails > tbody').append($('<tr><td>Points</td><td>'+points+'</td></tr>'));
-					$('.raceDetails > tbody > tr:nth-child('+univ_index+')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;'+reverse_lag_style+'"><span>'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM ('+start_time_ms+'ms start)</td></tr><br>';
+					$('.raceDetails > tbody > tr:nth-child('+univ_index+')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;'+reverse_lag_style+'"><span>'+registered_speed+' WPM</span>'+ghost_button_html+'</td></tr><tr><td>Unlagged</td><td>'+unlagged_speed+' WPM (ping: '+ping+'ms)</td></tr><tr><td>Adjusted</td><td>'+adjusted_speed+' WPM (start: '+start_time_ms+'ms)</td></tr><br>';
 				}
 			}
 			});
