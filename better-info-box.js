@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Info Box Data
 // @namespace    http://tampermonkey.net/
-// @version      0.8
+// @version      0.9.0
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @description  Last 10 avg to two decimal places, & proper thousands separator formatting, in the User Info Box
@@ -19,6 +19,7 @@
 0.7.0 (04-18-20):   CPM support
 0.8.0 (04-18-20):   All universes support
                     Proper commas formatting in avg (for 1000+cpm/wpm typists)
+0.9.0 (04-20-20):   Fixed history
 ==============================================================================*/
 
 // Global text boxes variables
@@ -30,9 +31,9 @@ const integerCommasRegex = /\B(?=(\d{3})+(?!\d))/g;
 const displayNameRegex = /.*\((.*)\)$/;
 
 var accountDataUrlBase = 'https://data.typeracer.com/users?id=tr:';
-let match = /.*(universe=[^&]*)/.exec(window.location.href);
-if(match!=null)
-    accountDataUrlBase = 'https://data.typeracer.com/users?'+match[1]+'&id=tr:';
+let match = /.*(universe=)([^&]*)/.exec(window.location.href);
+if(match!=null&&match[2]!='')
+    accountDataUrlBase = 'https://data.typeracer.com/users?'+match[1]+match[2]+'&id=tr:';
 
 // Adds proper thousands separators to an int
 function formatInteger(n) {
@@ -67,16 +68,19 @@ function getUsernameFromDisplayName(displayName) {
     return displayName;
 }
 
-// Get and display exact last 10 average
+// Get, format and display exact last 10 average
 function exactAvg(displayNameClass,pitStopAppendix='')
 {
-    let displayName = document.getElementsByClassName(displayNameClass)[0].innerText;
-    let playerName = getUsernameFromDisplayName(displayName);
+    let playerName = getUsernameFromDisplayName(document.getElementsByClassName(displayNameClass)[0].innerText); // Check username everytime to support logging in and out without refreshing
+
+//     If logged out as guest: can't access exact average
     if(playerName=='Guest')
     {
         avgDisplay.innerText=document.getElementsByClassName('mainUserInfoBoxWpm')[0].innerText;
         return;
     }
+
+//     If logged into an account
 	GM_xmlhttpRequest ( {
 		method: "GET",
 		url: accountDataUrlBase+playerName,
