@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Info Box Data
 // @namespace    http://tampermonkey.net/
-// @version      0.10.1
+// @version      0.11.0
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @description  Last 10 avg to two decimal places, & proper thousands separator formatting, in the User Info Box
@@ -24,7 +24,10 @@
 0.10.0 (04-21-20):   Removed refreshing latency (for "normal", single-tab racing)
 0.10.1 (04-21-20):   Staging support
                      Better log in or out support
+0.11.0 (04-21-20):   Faster initial refresh
 ====================================================================================*/
+
+const url = window.location.href;
 
 // Global text boxes variables
 var avgDisplay;
@@ -37,24 +40,24 @@ const displayNameRegex = /.*\((.*)\)$/;
 var isRacing=false;
 var playerName='';
 
-// Contextual values
-var context=0; //0: play or staging; 1: pit stop
-const displayNameClass = ['userNameLabel','mainUserName'];
-const dataRowClass = ['datarow','dataRow'];
-const avgAppendix=['',' <a href="http://wikipedia.org/wiki/Wpm" target="_blank">WPM</a>'];
+// waits for x ms if awaited in an async function
+function sleep(x) {
+  return new Promise(resolve => setTimeout(resolve, x));
+}
 
 // Detect universe
 var accountDataUrlBase = 'https://data.typeracer.com/users?id=tr:';
-let match = /.*(universe=)([^&]*)/.exec(window.location.href);
+let match = /.*(universe=)([^&]*)/.exec(url);
 if(match!=null&&match[2]!='')
 	accountDataUrlBase = 'https://data.typeracer.com/users?'+match[1]+match[2]+'&id=tr:';
 
-function checkContext() // Returns 0 for play or staging, 1 for Pit Stop
-{
-    if(document.getElementsByClassName('mainUserInfoBoxWpm').length>0)
-        return 0;
-    return 1;
-}
+// Contextual values (context=0 for play or staging, 1 for Pit Stop)
+var context=0;
+if(url.startsWith('https://data'))
+    context++;
+const displayNameClass = ['userNameLabel','mainUserName'];
+const dataRowClass = ['datarow','dataRow'];
+const avgAppendix=['',' <a href="http://wikipedia.org/wiki/Wpm" target="_blank">WPM</a>'];
 
 // Adds proper thousands separators to an int
 function formatInteger(n) {
@@ -147,8 +150,6 @@ function detectLogActivity()
 
 function initiate()
 {
-	context=checkContext();
-
 	detectLogActivity();
 	setInterval(detectLogActivity,100);
 
@@ -192,13 +193,15 @@ function initiate()
 		addCommas();
 	}
 
-	setInterval(detectRaceEnding,100);
+    setInterval(detectRaceEnding,100);
 }
 
 // Delaying the code's execution, to give the page time to load
-window.addEventListener('load', function()
+window.addEventListener('load', async function()
 {
-    setTimeout(function(){
-        initiate();
-    },2000);
+    while((((document.getElementsByClassName(displayNameClass[context]) || [])[0] || {}).innerHTML || '')=='')
+    {
+        await sleep(100);
+    }
+    initiate();
 }, false);
