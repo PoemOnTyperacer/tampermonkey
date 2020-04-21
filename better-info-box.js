@@ -191,6 +191,8 @@ function initiate()
 		pointsDisplay = document.querySelector(".dataRow > td:nth-child(5)");
 		addCommas();
 	}
+
+	setInterval(detectRaceEnding,100);
 }
 
 // Delaying the code's execution, to give the page time to load
