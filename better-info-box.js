@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Info Box Data
 // @namespace    http://tampermonkey.net/
-// @version      0.9.0
+// @version      0.10.0
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @description  Last 10 avg to two decimal places, & proper thousands separator formatting, in the User Info Box
@@ -13,14 +13,15 @@
 // ==/UserScript==
 
 /*Changelog:
-==============================================================================
-0.5.0 (04-17-20):   Guest support
-0.6.0 (04-18-20):   Pit Stop support
-0.7.0 (04-18-20):   CPM support
-0.8.0 (04-18-20):   All universes support
-                    Proper commas formatting in avg (for 1000+cpm/wpm typists)
-0.9.0 (04-20-20):   Fixed history
-==============================================================================*/
+====================================================================================
+0.5.0  (04-17-20):   Guest support
+0.6.0  (04-18-20):   Pit Stop support
+0.7.0  (04-18-20):   CPM support
+0.8.0  (04-18-20):   All universes support
+                     Proper commas formatting in avg (for 1000+cpm/wpm typists)
+0.9.0  (04-20-20):   Fixed history
+0.10.0 (04-21-20):   Removed refreshing latency (for "normal", single-tab racing)
+====================================================================================*/
 
 // Global text boxes variables
 var avgDisplay;
@@ -29,6 +30,8 @@ var pointsDisplay;
 
 const integerCommasRegex = /\B(?=(\d{3})+(?!\d))/g;
 const displayNameRegex = /.*\((.*)\)$/;
+
+var isRacing=false;
 
 var accountDataUrlBase = 'https://data.typeracer.com/users?id=tr:';
 let match = /.*(universe=)([^&]*)/.exec(window.location.href);
@@ -128,7 +131,7 @@ window.addEventListener('load', function()
             originalAvg.parentNode.appendChild(avgDisplay);
 
             exactAvg('userNameLabel'); //Initial refresh
-            setInterval(function(){exactAvg('userNameLabel')},5000); //5 seconds for data.typeracer's sake
+            setInterval(function(){exactAvg('userNameLabel')},10000); // Refresh avg regularly in case player uses multiple tabs (10-second interval for data.typeracer's sake)
 
             let dataRow = document.getElementsByClassName('datarow')[0];
 
@@ -143,7 +146,20 @@ window.addEventListener('load', function()
             document.querySelector(".datarow > td:nth-child(4)").style.display = "none";
             document.querySelector(".datarow > td:nth-child(5)").style.display = "none";
 
-            setInterval(function(){addCommas('datarow')},10);
+            setInterval(function(){addCommas('datarow')},100);
         }
     },2000);
 }, false);
+
+// Refresh average on race end
+function detectRaceEnding() {
+    var gameStatus = ((document.getElementsByClassName('gameStatusLabel') || [])[0] || {}).innerHTML || '';
+    if ((gameStatus.startsWith('You finished') || gameStatus.startsWith('The race has ended'))&&isRacing)
+    {
+        isRacing=false;
+        exactAvg('userNameLabel');
+    }
+    else if(gameStatus=='Go!'&&!isRacing)
+        isRacing=true;
+}
+setInterval(detectRaceEnding,100);
