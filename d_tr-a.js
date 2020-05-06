@@ -34,10 +34,10 @@ function kRows(k)
     return ans.slice(0,-1);
 }
 
-//  function logMenuData(menu)
-// {
-//     console.log("_expanded:"+menu._expanded+"\n_animate:"+menu._animate+"\n_duration:"+menu._duration+"\n_frameTime:"+menu._frameTime+"\n_nFrames:"+menu._nFrames+"\n_collapsed.x:"+menu._collapsed.x+"\n_collapsed.y:"+menu._collapsed.y);
-// }
+/*function logMenuData(menu)
+{
+    console.log("_expanded:"+menu._expanded+"\n_animate:"+menu._animate+"\n_duration:"+menu._duration+"\n_frameTime:"+menu._frameTime+"\n_nFrames:"+menu._nFrames+"\n_collapsed.x:"+menu._collapsed.x+"\n_collapsed.y:"+menu._collapsed.y);
+}*/
 
 const BACKGROUND=``;
 GM_addStyle (
