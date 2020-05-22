@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Typeracer: Better Info Box Data
+// @name         Typeracer: Exact last 10 average
 // @namespace    http://tampermonkey.net/
 // @version      0.11.0
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
