@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Typeracer Awards Organizer
+// @name         Typeracer: Awards Organizer
 // @namespace    http://tampermonkey.net/
 // @version      1.4.2
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
