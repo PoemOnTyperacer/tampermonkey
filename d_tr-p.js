@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Typeracer: More Race Details
+// @name         Typeracer: Adjusted speed calculator
 // @namespace    http://tampermonkey.net/
 // @version      1.2.7
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-p.js
