@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: tournament officiating tool
 // @namespace    http://tampermonkey.net/
-// @version      0.0.1
+// @version      0.0.2
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @description  Show unlagged speeds for opponents in private racetracks
@@ -15,6 +15,7 @@
 
 GM_addStyle (`
 #mydiv {
+color: 	#D3D3D3;
     border-radius: 3px;
     background-color: #5a5a5a;
 padding: 10px;
