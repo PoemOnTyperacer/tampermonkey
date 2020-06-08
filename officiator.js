@@ -26,7 +26,7 @@ padding: 10px;
 font-weight: bold;
 }`);
 
-const debugging = true;
+const debugging = false;
 
 var inRacetrack = false;
 var areRacing = false;
