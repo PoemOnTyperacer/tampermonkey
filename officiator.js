@@ -18,7 +18,7 @@ GM_addStyle (`
     border-radius: 3px;
     background-color: #5a5a5a;
     padding: 10px;
-    box-shadow: 4px 4px 3px 3px rgb(80,80,80);/*#D3D3D3; #000000; #f0f;*/
+    box-shadow: 2px 2px 2px 2px rgb(80,80,80);/*#D3D3D3; #000000; #f0f;*/
 }
 #cstDisplayheader {
     cursor: move;
