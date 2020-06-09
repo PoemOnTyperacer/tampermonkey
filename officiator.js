@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: tournament officiator tool
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @description  Show unlagged speeds for opponents in private racetracks
@@ -224,6 +224,13 @@ function displayIthPlayerData(i)
         displayTable.innerHTML+='<tr><td style="font-weight:600;">'+username+': </td><td id="display_'+i+'"></td></tr>';
         log('added new \'display_'+i+'\' line for user '+username);
     }
+
+    if(parseInt(raceCount)==0)
+    {
+        document.getElementById('display_'+i).innerHTML = "no race yet";
+        return;
+    }
+
 //     get and display tracked player's latest result
     log('retrieving and displaying latest result (#'+trackedPlayersData[i][0]+') for player #'+i);
     getRaceSpeeds(username,raceCount,i);
@@ -249,7 +256,6 @@ function getSpeedsFromHtml(username, race_number, html,index) { // process the r
     {
         log("[Error] Couldn't retrieve "+universe+' universe race #'+race_number+' data for '+username+': no log found');
         trackedPlayersData[index][0]--; // if the request was made too fast and the data isn't yet available/ the page loaded too slow, reset the loading process (doesn't seem to loop as far as our tests went)
-        window.alert('it did the thing');
         return;
     }
     let log_contents = match[1];
