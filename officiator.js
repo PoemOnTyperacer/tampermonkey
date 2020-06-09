@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: tournament officiator tool
 // @namespace    http://tampermonkey.net/
-// @version      0.1.0
+// @version      0.1.1
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @description  Show unlagged speeds for opponents in private racetracks
@@ -18,11 +18,12 @@ GM_addStyle (`
     border-radius: 3px;
     background-color: #5a5a5a;
     padding: 10px;
-    box-shadow: 0 0 2px 2px #000000; /*#f0f;*/
+    box-shadow: 0 0 2px 2px rgb(80,80,80);/*#D3D3D3; #000000; #f0f;*/
 }
 #cstDisplayheader {
     cursor: move;
-    font-weight: bold;
+    font-weight: 800;
+    font-size: 1.1em;
 }`);
 
 
@@ -35,13 +36,20 @@ function log(msg)
 
 var inRacetrack = false;
 var areRacing = false;
-var trackedPlayers = [];
-var trackedPlayersData = [];
+var trackedPlayers = [''];
+var trackedPlayersData = [[-1]];
 const accountDataUrlBase = "https://data.typeracer.com/users?id=tr:";
-let displayHTML = '<div id="cstDisplay" style="position: absolute; top: 150px; left: 50px;"><div id="cstDisplayheader">Latest unlagged results</div><div><table cellspacing="10" cellpadding="0" style="width: 100%;"><tbody id="displayBody"></tbody></table></div>';
+let displayHTML = '<div id="cstDisplay" style="position: absolute; top: 150px; left: 50px;"><div id="cstDisplayheader">Latest unlagged results</div><div><hr style="border:none;margin: 10px;height:2px;background-color:#D3D3D3;"></div><div><table cellspacing="10" cellpadding="0" style="width: 100%;"><tbody id="displayBody"><tr><td><button onmouseout="this.style.background=\'#D3D3D3\';" onmouseover="this.style.background=\'#909090\';" style ="font-weight:600; padding: 3px; background:#D3D3D3; color:#5a5a5a; border: 0;box-shadow: none;border-radius: 4px; padding: 4px; outline:none;" onclick="toggleSelf();">Toggle self</button></td><td id="display_0">logged out</td></tr></tbody></table></div>';
+
+// inject the script running the "toggle self" button
+var scr = document.createElement('script');
+scr.type="text/javascript";
+scr.innerHTML='function toggleSelf(){let x = document.getElementById(\"display_0\");if (x.style.display === \"none\") { x.style.display = \"block\"; } else { x.style.display = \"none\";}}';
+document.getElementsByTagName('head')[0].appendChild(scr)
+
+
 //probably overkill for ttm, but this allows support for non-play universe racetracks
 var universe = (/.*(universe=)([^&]*)/.exec(window.location.href) || [])[2] || 'play';
-
 
 // Create the display window, make it draggable, and vanish it initially
 document.body.innerHTML += displayHTML;
@@ -99,11 +107,10 @@ function dragElement(elmnt)
 function toggleDisplayWindow()
 {
     let x = document.getElementById('cstDisplay');
-    if (x.style.display === "none") {
-    x.style.display = "block";
-  } else {
-    x.style.display = "none";
-  }
+    if (x.style.display === "none")
+        x.style.display = "block";
+    else
+        x.style.display = "none";
 }
 
 function getUsernameFromDisplayName(displayName) {
@@ -112,8 +119,41 @@ function getUsernameFromDisplayName(displayName) {
         return match[1];
     return displayName;
 }
+var self_username = '';
+var logged_in = false;
 
 function mainClock() {
+//     check for user's own account (might not be set initially, or might have changed)
+    let potential_self_username = (document.querySelector('.MainUserInfoEditor > tbody > tr > td > a') || {}).innerText || '';
+    if(potential_self_username!='')// check that the page is done loading
+    {
+    let logged_in_current = potential_self_username=='Sign Out';
+
+    if(logged_in&&!logged_in_current)
+    {
+        document.getElementById('display_0').innerText = 'logged out';
+        self_username='';
+        trackedPlayers[0]='';
+        logged_in=false;
+        log('user just logged out from '+self_username+' account.');
+    }
+    else if(logged_in_current)
+    {
+        let self_username_current = getUsernameFromDisplayName(document.getElementsByClassName('userNameLabel')[0].innerText);
+        if(!logged_in)
+        {
+            log('user just logged in to '+self_username_current+' account.');
+            logged_in=true;
+            self_username = self_username_current;
+            trackedPlayers[0]=self_username;
+            trackedPlayersData[0][0]=-1;
+            document.getElementById('display_0').innerText = ''; //cosmetic. Should last 500ms statistically
+        }
+//         no need to treat the case where self_username_current!=self_username assuming the user can't change accounts instantly
+    }
+    }
+
+
     let roomTitle = ((document.getElementsByClassName('room-title') || [])[0] || {}).innerText || '';
     if(roomTitle.endsWith("'s Racetrack"))
     {
@@ -150,20 +190,23 @@ function mainClock() {
     for(let i=0;i<trackedPlayers.length;i++)
     {
         let username = trackedPlayers[i];
-        let accountDataUrl = accountDataUrlBase + username +'&universe='+universe;
-        GM_xmlhttpRequest ( {
-		method: 'GET',
-		url: accountDataUrl,
-		onload: function (response) {
-            let raceCount = JSON.parse(response.responseText).tstats.cg;
-                if(raceCount!=trackedPlayersData[i][0])
-                {
-                    log('new race count for '+username+': '+raceCount);
-                    trackedPlayersData[i][0]=raceCount;
-                    displayIthPlayerData(i);
+        if(username!='') //exclude case where self is a guest, and his username set to ''
+        {
+            let accountDataUrl = accountDataUrlBase + username +'&universe='+universe;
+            GM_xmlhttpRequest ( {
+                method: 'GET',
+                url: accountDataUrl,
+                onload: function (response) {
+                    let raceCount = JSON.parse(response.responseText).tstats.cg;
+                    if(raceCount!=trackedPlayersData[i][0])
+                    {
+                        log('new race count for '+username+': '+raceCount);
+                        trackedPlayersData[i][0]=raceCount;
+                        displayIthPlayerData(i);
+                    }
                 }
-		}
-        });
+            });
+        }
     }
 }
 setInterval(mainClock,1000); //1s between each set of race count checks -- should not be too heavy on typeracerdata, and an acceptable latency for the user
@@ -178,11 +221,11 @@ function displayIthPlayerData(i)
 
     if(!displayObject) //if the tracked player was just added to the list, create a table line on which to show his latest score
     {
-        displayTable.innerHTML+='<tr><td>'+username+': </td><td id="display_'+i+'"></td></tr>';
+        displayTable.innerHTML+='<tr><td style="font-weight:600;">'+username+': </td><td id="display_'+i+'"></td></tr>';
         log('added new \'display_'+i+'\' line for user '+username);
     }
 //     get and display tracked player's latest result
-    log('retrieving and displaying latest result (#'+trackedPlayersData[i][0]+') for '+i+'th player');
+    log('retrieving and displaying latest result (#'+trackedPlayersData[i][0]+') for player #'+i);
     getRaceSpeeds(username,raceCount,i);
 }
 
@@ -206,6 +249,7 @@ function getSpeedsFromHtml(username, race_number, html,index) { // process the r
     {
         log("[Error] Couldn't retrieve "+universe+' universe race #'+race_number+' data for '+username+': no log found');
         trackedPlayersData[index][0]--; // if the request was made too fast and the data isn't yet available/ the page loaded too slow, reset the loading process (doesn't seem to loop as far as our tests went)
+        window.alert('it did the thing');
         return;
     }
     let log_contents = match[1];
