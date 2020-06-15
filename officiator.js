@@ -45,6 +45,8 @@ var inMaintrack = false;
 var inMaintrackRace=false;
 var trackedPlayers = [''];
 var trackedPlayersData = [[-1]];
+var self_username = '';
+var logged_in = false;
 const accountDataUrlBase = "https://data.typeracer.com/users?id=tr:";
 let displayHTML = '<div id="cstDisplay" style="position: absolute; top: 150px; left: 50px;"><div id="cstDisplayheader"><td align="left">Latest unlagged results</td><td align="right"><img src="https://play.typeracer.com/com.typeracer.guest.Guest/clear.cache.gif" style="width: 24px; height: 24px; margin-left:20px; background: url(&quot;https://play.typeracer.com/com.typeracer.guest.Guest/B7496B103318F476B179891EF1D2ED36.cache.png&quot;) -232px 0px no-repeat;" border="0" class="btnPin"></div><div><hr style="border:none;margin: 10px;height:2px;background-color:#D3D3D3;"></div><div><table cellspacing="10" cellpadding="0" style="width: 100%;"><tbody id="displayBody"><tr id="line_0"><td><button id="toggleSelfButton" onmouseout="this.style.background=\'#D3D3D3\';" onmouseover="this.style.background=\'#909090\';" style ="font-weight:600; padding: 3px; background:#D3D3D3; color:#5a5a5a; border: 0;box-shadow: none;border-radius: 4px; padding: 4px; outline:none;" onclick="toggleSelf();">Toggle self</button></td><td id="display_0">logged out</td></tr></tbody></table></div>';
 
@@ -133,8 +135,6 @@ function getUsernameFromDisplayName(displayName) {
         return match[1];
     return displayName;
 }
-var self_username = '';
-var logged_in = false;
 
 function clearDisplay() {
     for(var k=1;k<trackedPlayers.length;k++)
