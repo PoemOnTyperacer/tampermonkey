@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: tournament officiator tool
 // @namespace    http://tampermonkey.net/
-// @version      0.1.3
+// @version      0.2.0
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @description  Show unlagged speeds for opponents in private racetracks
@@ -11,6 +11,14 @@
 // @grant        GM_addStyle
 // @connect      data.typeracer.com
 // ==/UserScript==
+
+/*SETTINGS*/
+const showOnMaintrack = false; //should the window appear when you join a maintrack race?
+const showInRacetracks = true; //...when you join a private racetrack?
+const toggleWindowKey = 13; //which key should toggle the window when pressed in a racetrack/maintrack? (default: 13 (Enter). Key code list: http://gcctech.org/csc/javascript/javascript_keycodes.htm)
+
+const debugging = false;
+/*========*/
 
 GM_addStyle (`
 #cstDisplay {
@@ -26,8 +34,6 @@ GM_addStyle (`
     font-size: 1.1em;
 }`);
 
-
-const debugging = false;
 function log(msg)
 {
     if(debugging)
@@ -35,11 +41,13 @@ function log(msg)
 }
 
 var inRacetrack = false;
+var inMaintrack = false;
+var inMaintrackRace=false;
 var areRacing = false;
 var trackedPlayers = [''];
 var trackedPlayersData = [[-1]];
 const accountDataUrlBase = "https://data.typeracer.com/users?id=tr:";
-let displayHTML = '<div id="cstDisplay" style="position: absolute; top: 150px; left: 50px;"><div id="cstDisplayheader"><td align="left">Latest unlagged results</td><td align="right"><img src="https://play.typeracer.com/com.typeracer.guest.Guest/clear.cache.gif" style="width: 24px; height: 24px; margin-left:20px; background: url(&quot;https://play.typeracer.com/com.typeracer.guest.Guest/B7496B103318F476B179891EF1D2ED36.cache.png&quot;) -232px 0px no-repeat;" border="0" class="btnPin"></div><div><hr style="border:none;margin: 10px;height:2px;background-color:#D3D3D3;"></div><div><table cellspacing="10" cellpadding="0" style="width: 100%;"><tbody id="displayBody"><tr><td><button onmouseout="this.style.background=\'#D3D3D3\';" onmouseover="this.style.background=\'#909090\';" style ="font-weight:600; padding: 3px; background:#D3D3D3; color:#5a5a5a; border: 0;box-shadow: none;border-radius: 4px; padding: 4px; outline:none;" onclick="toggleSelf();">Toggle self</button></td><td id="display_0">logged out</td></tr></tbody></table></div>';
+let displayHTML = '<div id="cstDisplay" style="position: absolute; top: 150px; left: 50px;"><div id="cstDisplayheader"><td align="left">Latest unlagged results</td><td align="right"><img src="https://play.typeracer.com/com.typeracer.guest.Guest/clear.cache.gif" style="width: 24px; height: 24px; margin-left:20px; background: url(&quot;https://play.typeracer.com/com.typeracer.guest.Guest/B7496B103318F476B179891EF1D2ED36.cache.png&quot;) -232px 0px no-repeat;" border="0" class="btnPin"></div><div><hr style="border:none;margin: 10px;height:2px;background-color:#D3D3D3;"></div><div><table cellspacing="10" cellpadding="0" style="width: 100%;"><tbody id="displayBody"><tr id="line_0"><td><button id="toggleSelfButton" onmouseout="this.style.background=\'#D3D3D3\';" onmouseover="this.style.background=\'#909090\';" style ="font-weight:600; padding: 3px; background:#D3D3D3; color:#5a5a5a; border: 0;box-shadow: none;border-radius: 4px; padding: 4px; outline:none;" onclick="toggleSelf();">Toggle self</button></td><td id="display_0">logged out</td></tr></tbody></table></div>';
 
 // inject the script running the "toggle self" button
 var scr = document.createElement('script');
@@ -122,6 +130,16 @@ function getUsernameFromDisplayName(displayName) {
 var self_username = '';
 var logged_in = false;
 
+function clearDisplay() {
+    for(var k=1;k<trackedPlayers.length;k++)
+    {
+        document.getElementById('line_'+k).remove();
+    }
+    trackedPlayers=[trackedPlayers[0]];
+    trackedPlayersData=[trackedPlayersData[0]];
+    log('resetting non-self tracked players');
+}
+
 function mainClock() {
 //     check for user's own account (might not be set initially, or might have changed)
     let potential_self_username = (document.querySelector('.MainUserInfoEditor > tbody > tr > td > a') || {}).innerText || '';
@@ -154,6 +172,7 @@ function mainClock() {
     }
 
 
+    let gameStatus = ((document.getElementsByClassName('gameStatusLabel') || [])[0] || {}).innerHTML || '';
     let roomTitle = ((document.getElementsByClassName('room-title') || [])[0] || {}).innerText || '';
     if(roomTitle.endsWith("'s Racetrack"))
     {
@@ -161,16 +180,53 @@ function mainClock() {
         {
             inRacetrack = true;
             log("joined a racetrack");
-            toggleDisplayWindow();
+            if(showInRacetracks)
+                toggleDisplayWindow();
         }
     }
     else if(inRacetrack)
     {
         inRacetrack=false;
         log("left the racetrack");
-        toggleDisplayWindow();
+        if(showInRacetracks)
+            toggleDisplayWindow();
+        clearDisplay();
     }
-    if(inRacetrack)
+    else if(roomTitle!="Practice Racetrack")
+    {
+        if (gameStatus=="The race is about to start!"||gameStatus=="Waiting for more people...")
+        {
+            if(!inMaintrack)
+            {
+                inMaintrack=true;
+                log('joined maintrack');
+                if(showOnMaintrack)
+                    toggleDisplayWindow();
+            }
+            else if(!inMaintrackRace)
+            {
+                inMaintrackRace=true;
+                log('joined maintrack race');
+                clearDisplay();
+            }
+        }
+        else if((gameStatus.startsWith('You finished') || gameStatus.startsWith('The race has ended'))&&inMaintrackRace)
+        {
+            inMaintrackRace=false;
+            log('finished maintrack race');
+        }
+        else if(inMaintrack&&gameStatus=='')
+        {
+            inMaintrackRace = false;
+            inMaintrack=false;
+            log('left maintrack');
+            clearDisplay();
+            if(showOnMaintrack)
+                toggleDisplayWindow();
+        }
+    }
+
+    if(inRacetrack||inMaintrack)
     {
 //         detect participants and add them to the list of tracked players
         let raceParticipants = document.getElementsByClassName('lblUsername');
@@ -221,7 +277,7 @@ function displayIthPlayerData(i)
 
     if(!displayObject) //if the tracked player was just added to the list, create a table line on which to show his latest score
     {
-        displayTable.innerHTML+='<tr><td style="font-weight:600;">'+username+': </td><td id="display_'+i+'"></td></tr>';
+        displayTable.innerHTML+='<tr id="line_'+i+'" style="display:none;"><td style="font-weight:600;">'+username+': </td><td id="display_'+i+'"></td></tr>';
         log('added new \'display_'+i+'\' line for user '+username);
     }
 
@@ -297,6 +353,7 @@ function getSpeedsFromHtml(username, race_number, html,index) { // process the r
 
 //     Display the calculated unlagged score with 2 decimal places
     document.getElementById('display_'+index).innerHTML = unlagged_speed.toFixed(2)+' WPM';
+    document.getElementById('line_'+index).style.display='';
 
 //     not useful for ttm or anything but adjusted speed is easily available too
 //     var adjusted_speed = 12000*(quote_length-1)/(total_time-start);
@@ -331,3 +388,13 @@ function printSpeeds(registered_speed,ping,unlagged_speed,start,adjusted_speed)
 {
     log('Registered: '+registered_speed+'\nUnlagged: '+unlagged_speed+' (ping='+ping+')\nAdjusted: '+adjusted_speed+' (start='+start+')');
 }
+
+function toggleWindowShortcut(key)
+{
+    if (key.keyCode == toggleWindowKey&&(inMaintrack||inRacetrack))
+    {
+        toggleDisplayWindow();
+    }
+}
+
+document.onkeypress = toggleWindowShortcut;
