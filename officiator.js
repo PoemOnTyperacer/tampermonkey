@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: tournament officiator tool
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
+// @version      0.2.1
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @description  Show unlagged speeds for opponents in private racetracks
@@ -121,6 +121,13 @@ function toggleDisplayWindow()
         x.style.display = "none";
 }
 
+function isDisplayWindowOn() {
+    let x = document.getElementById('cstDisplay');
+    if (x.style.display === "none")
+        return false;
+    return true;
+}
+
 function getUsernameFromDisplayName(displayName) {
     let match = /.*\((.*)\)$/.exec(displayName);
     if (match != null)
@@ -188,7 +195,7 @@ function mainClock() {
     {
         inRacetrack=false;
         log("left the racetrack");
-        if(showInRacetracks)
+        if(isDisplayWindowOn())
             toggleDisplayWindow();
         clearDisplay();
     }
@@ -221,7 +228,8 @@ function mainClock() {
             inMaintrack=false;
             log('left maintrack');
             clearDisplay();
-            if(showOnMaintrack)
+            log("is display on:"+isDisplayWindowOn());
+            if(isDisplayWindowOn())
                 toggleDisplayWindow();
         }
     }
