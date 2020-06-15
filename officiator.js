@@ -43,7 +43,6 @@ function log(msg)
 var inRacetrack = false;
 var inMaintrack = false;
 var inMaintrackRace=false;
-var areRacing = false;
 var trackedPlayers = [''];
 var trackedPlayersData = [[-1]];
 const accountDataUrlBase = "https://data.typeracer.com/users?id=tr:";
