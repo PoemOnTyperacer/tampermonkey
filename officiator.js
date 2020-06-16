@@ -15,7 +15,7 @@
 //Note: Whatever the settings below, manually show/hide the window by hitting Ctrl + Alt + U when in maintrack or in a private track
 
 /*SETTINGS*/
-const showInRacetracks = true; //...when you join a private racetrack?
+const showInRacetracks = true; //should the window appear when you join a private racetrack?
 const showSelf = true; //should your own results be displayed on line 1?
 const showOnMaintrack = false; //should the window appear when you join a maintrack race?
 const autoCopy = false; //should the latest result of any currently tracked players be copied to your clipboard automatically?
