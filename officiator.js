@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: tournament officiator tool
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2
+// @version      0.2.3
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @description  Show competitors' latest unlagged scores in a floating window.
@@ -408,7 +408,11 @@ function getSpeedsFromHtml(username, race_number, html,index) { // process the r
         document.getElementById('tag_'+index).onclick= function(){origOnclick();trackedPlayersData[index][1] = false;log('deleted tracked user '+index+' ('+username+')')};
     }
     if(autoCopy)
+    {
         copyResult(index);
+        if(inRacetrack)
+            document.getElementsByClassName("txtChatMsgInput")[0].select();
+    }
     if(trackedPlayersData[index][1])
        document.getElementById('line_'+index).style.display='';
     let copy_index=document.getElementById('copy_'+index);
@@ -450,7 +454,7 @@ function printSpeeds(registered_speed,ping,unlagged_speed,start,adjusted_speed)
 }
 
 document.addEventListener ("keydown", function (zEvent) {
-    if (zEvent.ctrlKey  &&  zEvent.altKey  &&  zEvent.key === "u") {
+    if (zEvent.ctrlKey  &&  zEvent.altKey  &&  zEvent.key === "u" && (inMaintrack||inRacetrack)) {
         toggleDisplayWindow();
     }
 } );
