@@ -1,2 +1,6 @@
-Script idea: quick ghost button from leaderboard https://cdn.discordapp.com/attachments/540537709823787059/698398030289961020/unknown.png
-fix profiles in other universes
+probably not coming up but "charlie💧Today at 10:22 PM
+also would it be difficult to make a modification to the site so that instead of showing your most recent 10 scores on a quote it would also show your best? after you race it"
+
+saves left counter -> from timespan api?
+
+fix guest nick support for exact last 10 avg by looking at the "sign in" button
