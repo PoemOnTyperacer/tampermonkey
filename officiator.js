@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: tournament officiator tool
 // @namespace    http://tampermonkey.net/
-// @version      0.2.4
+// @version      0.2.5
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @description  Show competitors' latest unlagged scores in a floating window.
@@ -37,15 +37,29 @@ GM_addStyle (`
     font-size: 1.1em;
 }`);
 
-function log(msg)
+function log(msg, priority=4)
 {
-    if(debugging)
-        console.log("[officiating tool] "+msg);
+    if(priority==0)
+        console.log(("%c[officiator] "+msg),"color:red;");
+    else if(debugging)
+    {
+        if(priority==1)
+            console.log(("%c[officiator] "+msg),"color:purple;");
+        else if(priority==2)
+            console.log(("%c[officiator] "+msg),"color:blue;");
+        else if(priority==3)
+            console.log("[officiator] "+msg);
+        else if(priority==4)
+            console.log(("%c[officiator] "+msg),"color:gray;");
+        else if(priority==-1)
+            console.log(("%c[officiator] "+msg),"color:#CCCC00;");
+    }
 }
 
 var inRacetrack = false;
 var inMaintrack = false;
 var inMaintrackRace=false;
+var inRacetrackRace=false;
 var self_username = '';
 var logged_in = false;
 var trackedPlayers = [''];
@@ -142,9 +156,15 @@ function toggleDisplayWindow()
 {
     let x = document.getElementById('cstDisplay');
     if (x.style.display === "none")
+    {
         x.style.display = "block";
+        log('displaying window',-1);
+    }
     else
+    {
         x.style.display = "none";
+        log('hiding window',-1);
+    }
 }
 
 function isDisplayWindowOn() {
@@ -168,7 +188,7 @@ function clearDisplay() {
     }
     trackedPlayers=[trackedPlayers[0]];
     trackedPlayersData=[trackedPlayersData[0]];
-    log('resetting non-self tracked players');
+    log('resetting non-self tracked players',3);
 }
 
 function mainClock() {
@@ -186,14 +206,14 @@ function mainClock() {
         self_username='';
         trackedPlayers[0]='';
         logged_in=false;
-        log('user just logged out of '+self_username+' account.');
+        log('user just logged out of '+self_username+' account.',1);
     }
     else if(logged_in_current)
     {
         let self_username_current = getUsernameFromDisplayName(document.getElementsByClassName('userNameLabel')[0].innerText);
         if(!logged_in)
         {
-            log('user just logged in to '+self_username_current+' account.');
+            log('user just logged in to '+self_username_current+' account.',1);
             logged_in=true;
             self_username = self_username_current;
             trackedPlayers[0]=self_username;
@@ -213,15 +233,25 @@ function mainClock() {
         if(!inRacetrack)
         {
             inRacetrack = true;
-            log("joined a racetrack");
+            log("joined a racetrack",1);
             if(showInRacetracks)
                 toggleDisplayWindow();
+        }
+        if(gameStatus=="Go!"&&!inRacetrackRace)
+        {
+            inRacetrackRace=true;
+            log('joined racetrack race',2);
+        }
+        else if((gameStatus.startsWith('The race is on') || gameStatus.startsWith('You finished') || gameStatus.startsWith('The race has ended'))&&inRacetrackRace)
+        {
+            inRacetrackRace=false;
+            log('finished racetrack race',2);
         }
     }
     else if(inRacetrack)
     {
         inRacetrack=false;
-        log("left the racetrack");
+        log("left the racetrack",1);
         if(isDisplayWindowOn())
             toggleDisplayWindow();
         clearDisplay();
@@ -233,27 +263,27 @@ function mainClock() {
             if(!inMaintrack)
             {
                 inMaintrack=true;
-                log('joined maintrack');
+                log('joined maintrack',1);
                 if(showOnMaintrack)
                     toggleDisplayWindow();
             }
             else if(!inMaintrackRace)
             {
                 inMaintrackRace=true;
-                log('joined maintrack race');
+                log('joined maintrack race',2);
                 clearDisplay();
             }
         }
         else if((gameStatus.startsWith('You finished') || gameStatus.startsWith('The race has ended'))&&inMaintrackRace)
         {
             inMaintrackRace=false;
-            log('finished maintrack race');
+            log('finished maintrack race',2);
         }
         else if(inMaintrack&&gameStatus=='')
         {
             inMaintrackRace = false;
             inMaintrack=false;
-            log('left maintrack');
+            log('left maintrack',1);
             clearDisplay();
             log("is display on:"+isDisplayWindowOn());
             if(isDisplayWindowOn())
@@ -272,7 +302,7 @@ function mainClock() {
             {
                 trackedPlayers.push(ith_participant_username);
                 trackedPlayersData.push([-1, true]);
-                log('added a player: '+ith_participant_username+'; currently tracked players are '+trackedPlayers);
+                log('added a player: '+ith_participant_username+'; currently tracked players are '+trackedPlayers,3);
             }
         }
     }
@@ -355,7 +385,7 @@ function getSpeedsFromHtml(username, race_number, html,index) { // process the r
     let match = /var typingLog = ".*?,.*?,.*?,(.*?)\|/.exec(html);
     if(match==null)
     {
-        log("[Error] Couldn't retrieve "+universe+' universe race #'+race_number+' data for '+username+': no log found');
+        log("[Error] Couldn't retrieve "+universe+' universe race #'+race_number+' data for '+username+': no log found',0);
         trackedPlayersData[index][0]--; // if the request was made too fast and the data isn't yet available/ the page loaded too slow, reset the loading process (doesn't seem to loop as far as our tests went)
         return;
     }
@@ -407,11 +437,12 @@ function getSpeedsFromHtml(username, race_number, html,index) { // process the r
         let origOnclick=document.getElementById('tag_'+index).onclick;
         document.getElementById('tag_'+index).onclick= function(){origOnclick();trackedPlayersData[index][1] = false;log('deleted tracked user '+index+' ('+username+')')};
     }
-    if(autoCopy&&!inMaintrack)
+    if(autoCopy&&!inMaintrack&&!inRacetrackRace)
     {
         copyResult(index);
         if(inRacetrack)
             document.getElementsByClassName("txtChatMsgInput")[0].select();
+        log('auto-copied last result for user '+username,-1);
     }
     if(trackedPlayersData[index][1])
        document.getElementById('line_'+index).style.display='';
