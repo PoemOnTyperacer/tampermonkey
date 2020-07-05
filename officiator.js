@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Typeracer: tournament officiator tool
 // @namespace    http://tampermonkey.net/
-// @version      0.2.5
+// @version      0.3.0
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
 // @description  Show competitors' latest unlagged scores in a floating window.
 // @author       poem
 // @match        https://play.typeracer.com/*
+// @match        https://staging.typeracer.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @connect      data.typeracer.com
@@ -17,10 +18,10 @@
 /*SETTINGS*/
 const showInRacetracks = true; //should the window appear when you join a private racetrack?
 const showSelf = true; //should your own results be displayed on line 1?
-const showOnMaintrack = false; //should the window appear when you join a maintrack race?
+const showOnMaintrack = true; //should the window appear when you join a maintrack race?
 const autoCopy = false; //should the latest result of any currently tracked players be copied to your clipboard automatically?
 
-const debugging = false;
+const debugging = true;
 /*========*/
 
 GM_addStyle (`
@@ -60,6 +61,7 @@ var inRacetrack = false;
 var inMaintrack = false;
 var inMaintrackRace=false;
 var inRacetrackRace=false;
+var latestTop10s=[];
 var self_username = '';
 var logged_in = false;
 var trackedPlayers = [''];
@@ -191,8 +193,8 @@ function clearDisplay() {
     log('resetting non-self tracked players',3);
 }
 
-function mainClock() {
-//     check for user's own account (might not be set initially, or might have changed)
+function guiClock() {
+    //     check for user's own account (might not be set initially, or might have changed)
     let potential_self_username = (document.querySelector('.MainUserInfoEditor > tbody > tr > td > a') || {}).innerText || '';
     if(potential_self_username!='')// check that the page is done loading
     {
@@ -240,6 +242,7 @@ function mainClock() {
         if(gameStatus=="Go!"&&!inRacetrackRace)
         {
             inRacetrackRace=true;
+            latestTop10s=[];
             log('joined racetrack race',2);
         }
         else if((gameStatus.startsWith('The race is on') || gameStatus.startsWith('You finished') || gameStatus.startsWith('The race has ended'))&&inRacetrackRace)
@@ -270,6 +273,7 @@ function mainClock() {
             else if(!inMaintrackRace)
             {
                 inMaintrackRace=true;
+                latestTop10s=[];
                 log('joined maintrack race',2);
                 clearDisplay();
             }
@@ -290,7 +294,9 @@ function mainClock() {
                 toggleDisplayWindow();
         }
     }
+}
 
+function mainClock() {
     if(inRacetrack||inMaintrack)
     {
 //         detect participants and add them to the list of tracked players
@@ -336,7 +342,8 @@ function mainClock() {
         }
     }
 }
-setInterval(mainClock,1000); //1s between each set of race count checks -- should not be too heavy on typeracerdata, and an acceptable latency for the user
+setInterval(mainClock,1000); //1s between each set of race count checks -- should not be too heavy on data.typeracer, and an acceptable latency for the user
+setInterval(guiClock,1); // faster than the requests to data.typeracer, so the script can keep up with quick navigation
 
 function displayIthPlayerData(i)
 {
@@ -380,7 +387,7 @@ function getRaceSpeeds(username,race_number,index) // get the race details page 
 	});
 }
 
-function getSpeedsFromHtml(username, race_number, html,index) { // process the race details page html
+function getSpeedsFromHtml(username, race_number, html,index,rank,is_pb) { // process the race details page html
 //     Grab log from html
     let match = /var typingLog = ".*?,.*?,.*?,(.*?)\|/.exec(html);
     if(match==null)
@@ -428,10 +435,7 @@ function getSpeedsFromHtml(username, race_number, html,index) { // process the r
 
 //     Display the calculated unlagged score with 2 decimal places
     document.getElementById('display_'+index).innerHTML = unlagged_speed.toFixed(2)+' WPM';
-//     The document should have reloaded during the time the request was made. Time to activate the quick copy button
-//     document.getElementById('copy_'+index).onclick = function(){copyResult(index);};
-//     if(index!=0)
-//         document.getElementById('tag_'+index).onclick = function(){hideTrackePlayer(index);};
+//     The document should have reloaded during the time the request was made. Time to activate the delete player button
     if(index!=0)
     {
         let origOnclick=document.getElementById('tag_'+index).onclick;
@@ -453,32 +457,114 @@ function getSpeedsFromHtml(username, race_number, html,index) { // process the r
 //     not useful for ttm or anything but adjusted speed is easily available too
 //     var adjusted_speed = 12000*(quote_length-1)/(total_time-start);
 
-//     And for any future evolution of this script, this is how to remotely grab accurate registered speed and ping values
-//     let race_date = /<td>Date<\/td>\s*<td>\s*(.*)\s*/.exec(html)[1];
-//     let date_obj = new Date(race_date);
-// 	let race_unix_num = parseInt((date_obj.getTime()/1000).toFixed(0));
-// 	let unix_start = (race_unix_num-1).toString();
-// 	let unix_end = (race_unix_num+1).toString();
-//     let race_data_url = 'https://data.typeracer.com/games?playerId=tr:'+username+'&universe='+universe+'&startDate='+unix_start+'&endDate='+unix_end;
-//     GM_xmlhttpRequest ( {
-// 	method: 'GET',
-// 	url: race_data_url,
-// 	onload: function (response) {
-//         let data = JSON.parse(response.responseText);
-//         	for(var j=0;j<data.length;i++)
-// 			{
-//         		if(data[j].gn==race_number)
-// 				{
-//                     let registered_speed = parseFloat(data[j].wpm);
-//                     let total_time_lagged = quote_length/registered_speed*12000;
-//                     let ping = Math.round(total_time_lagged-total_time);
+//     Getting accurate registered speed (and ping) values
+    let race_date = /<td>Date<\/td>\s*<td>\s*(.*)\s*/.exec(html)[1];
+    let date_obj = new Date(race_date);
+	let race_unix_num = parseInt((date_obj.getTime()/1000).toFixed(0));
+	let unix_start = (race_unix_num-1).toString();
+	let unix_end = (race_unix_num+1).toString();
+    let race_data_url = 'https://data.typeracer.com/games?playerId=tr:'+username+'&universe='+universe+'&startDate='+unix_start+'&endDate='+unix_end;
+    GM_xmlhttpRequest ( {
+	method: 'GET',
+	url: race_data_url,
+	onload: function (response) {
+        let data = JSON.parse(response.responseText);
+        	for(var j=0;j<data.length;i++)
+			{
+        		if(data[j].gn==race_number)
+				{
+                    let registered_speed = parseFloat(data[j].wpm);
+                    let total_time_lagged = quote_length/registered_speed*12000;
+                    let ping = Math.round(total_time_lagged-total_time);
 //                     printSpeeds(registered_speed,ping,unlagged_speed,start,adjusted_speed);
-//                     break;
-//                 }
-// 			}
-// 	}
-// 	});
+//                     check top 10
+                    getRankFromHtml(username,race_number,html,index,registered_speed);
+                    break;
+                }
+			}
+	}
+	});
 }
+
+function getRankFromHtml(username,race_number,html,index,registered_speed)
+{
+//     get text id
+    let rank = -1;
+    let is_top10=true; //only significant if the score is a top 10
+    let topdata=[];
+    let is_pb=true; //same remark
+    let id_match = /.*?text_info\?id=(.*?)">see stats/.exec(html);
+    if(id_match==null)
+        log('couldn\'t find text id for user '+username+', race '+race_number);
+    else
+    {
+        let text_id = id_match[1];
+//         check top 10
+        let leaderboard_data_url = 'https://data.typeracer.com/textstats?textId='+text_id+'&distinct=1&universe='+universe+'&playerId=tr:'+username;
+        log(leaderboard_data_url);
+        GM_xmlhttpRequest ( {
+            method: 'GET',
+            url: leaderboard_data_url,
+            onload: function (response) {
+                let data = JSON.parse(response.responseText);
+                let top_10_data = data[1];
+                for(let n=0;n<top_10_data.length;n++)
+                {
+                    let nth_username=top_10_data[n][1].id.substring(3); // nth fastest player on the quote
+                    let nth_speed=top_10_data[n][0].wpm; // nth fastest player's best speed on that quote
+                    topdata+=[nth_username,nth_speed];
+                    log('#'+(n+1)+' player on '+username+'\'s last quote ('+text_id+', race #'+race_number+') : '+nth_username+', '+nth_speed,0)
+
+                    if(nth_username==username&&rank==-1&&registered_speed<nth_speed)
+                        is_pb=false;
+                    if(registered_speed>=nth_speed&&rank<0)
+                        rank=n+1;
+                }
+                if(top_10_data.length<10&&rank<0)
+                {
+                    rank=top_10_data.length+1;
+                }
+
+//                 compare rank with latest awarded top 10s [id, rank, speed, username]
+                for(let m=0;m<latestTop10s.length;m++)
+                {
+                    let mthRank=latestTop10s[m];
+                    log('pot. conf. top score number: '+latestTop10s.length+', rank: '+mthRank[1]+', id: '+mthRank[0]+'; current score rank: '+rank+', id: '+text_id);
+                    if(text_id==mthRank[0]&&mthRank[1]<=rank&&rank>0)
+                    {
+                        if(registered_speed<mthRank[2]&&!topdata.includes([mthRank[3],mthRank[2]]))
+                        {
+                            rank++;
+                            log('user '+username+', universe '+universe+', race '+race_number+', id '+text_id+': adding 1 to rank due to another top 10 in the same race',0);
+                        }
+                    }
+                }
+
+//                 display results
+                if(rank==-1||rank>10)
+                    is_top10 = false;
+
+                if(is_top10)
+                {
+                    latestTop10s.push([text_id,rank,registered_speed]);
+                    log('added top 10 score. Latest top 10s: '+latestTop10s+' (total: '+latestTop10s.length+')');
+                    log('user '+username+', universe '+universe+', race '+race_number+', id '+text_id+': #'+rank+', is_pb: '+is_pb);
+                    let display_el=document.getElementById('display_'+index);
+                    let content=display_el.innerHTML;
+                    let new_content=' (#'+rank;
+                    if(is_pb)
+                        new_content+=', pb)';
+                    else
+                        new_content+=')';
+                    display_el.innerHTML=content+new_content;
+                }
+                else
+                    log('user '+username+', universe '+universe+', race '+race_number+', id '+text_id+': not a top 10');
+            }
+        });
+    }
+}
+
 function printSpeeds(registered_speed,ping,unlagged_speed,start,adjusted_speed)
 {
     log('Registered: '+registered_speed+'\nUnlagged: '+unlagged_speed+' (ping='+ping+')\nAdjusted: '+adjusted_speed+' (start='+start+')');
