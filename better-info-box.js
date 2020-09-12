@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Exact last 10 average
 // @namespace    http://tampermonkey.net/
-// @version      0.11.0
+// @version      0.12.0
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better-info-box.js
 // @description  Last 10 avg to two decimal places, & proper thousands separator formatting, in the User Info Box
@@ -9,6 +9,7 @@
 // @match        https://play.typeracer.com/*
 // @match        https://staging.typeracer.com/*
 // @match        https://data.typeracer.com/pit/*
+// @exclude      https://data.typeracer.com/pit/admin/*
 // @grant        GM_xmlhttpRequest
 // @connect      data.typeracer.com
 // ==/UserScript==
@@ -25,6 +26,9 @@
 0.10.1 (04-21-20):   Staging support
                      Better log in or out support
 0.11.0 (04-21-20):   Faster initial refresh
+0.11.1 (05-26-20):   Excluded moderator pages
+0.12.0 (09-12-20):   Guest nicknames are now supported
+                     Fixed incorrect rounding up of some averages (eg. 144.999 to 144.00 instead of 145.00)
 ====================================================================================*/
 
 const url = window.location.href;
@@ -66,9 +70,11 @@ function formatInteger(n) {
 
 // Add thousands separators to and trim an exact speed to two decimal places
 function formatSpeed(x) {
-    let integerPartStr = Math.trunc(x).toString();
+    let integerPart = Math.trunc(x);
     let decimalPart = x%1;
-    return formatInteger(integerPartStr)+decimalPart.toFixed(2).substring(1);
+    if(parseFloat(decimalPart.toFixed(2))==1)
+        integerPart++;
+    return formatInteger(integerPart.toString())+decimalPart.toFixed(2).substring(1);
 }
 
 // Convert WPM if CPM mode is used
@@ -97,8 +103,15 @@ function exactAvg()
 {
     let playerName = getUsernameFromDisplayName(document.getElementsByClassName(displayNameClass[context])[0].innerText); // Check username everytime to support logging in and out without refreshing
 
+    let isGuest = false;
+    if(context==0) {
+        let logLinkText = document.querySelector('.datarow > td > table > tbody > tr > td > a').innerText;
+        if(logLinkText=='Sign In')
+            isGuest=true;
+    }
+
 //     If logged out as guest: can't access exact average
-    if(playerName=='Guest')
+    if(isGuest)
     {
         avgDisplay.innerText=document.getElementsByClassName('mainUserInfoBoxWpm')[0].innerText;
         return;
@@ -131,8 +144,14 @@ function detectRaceEnding() {
         isRacing=false;
         exactAvg();
     }
-    else if(gameStatus=='Go!'&&!isRacing)
-        isRacing=true;
+    else if(gameStatus=='Go!'||gameStatus.startsWith('The race is on!')) {
+        if(!isRacing) {
+            isRacing=true;
+        }
+    }
+    else if(isRacing) {
+        isRacing=false;
+    }
 }
 
 // Keep the "playerName" value up to date & refresh average when player logs in or out
