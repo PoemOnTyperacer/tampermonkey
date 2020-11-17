@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.4.2
+// @version      1.4.3
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -9,14 +9,13 @@
 // @match        https://data.typeracer.com/pit/text_info*
 // @match        https://data.typeracer.com/pit/result*
 // @match        https://play.typeracer.com/*
-// @match        https://staging.typeracer.com/*
 // @grant        GM_xmlhttpRequest
 // @require      http://code.jquery.com/jquery-3.4.1.min.js
 // @connect      data.typeracer.com
 // @connect      typeracerdata.com
 // ==/UserScript==
 
-
+// TEMPORARY VERSION -- DISABLED ON STAGING WHERE IT WAS CAUSING BUGS
 
 /*=========SETTINGS=============*/
 const SHOW_DESSLEJUSTED = false;
