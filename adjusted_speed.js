@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.4.4
+// @version      1.4.5
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -48,8 +48,9 @@ const SHOW_DESSLEJUSTED = false;
 1.4.2 (09-07-20):   Added a Difficulty value on race and text details pages
 1.4.4 (11-18-20):   Typeracer responsive theme update support
                     Fixed the Peak adjusted button "P"
-		    Fixed crashing on Firefox (no after-race replay yet)
+		            Fixed crashing on Firefox (no after-race replay yet)
                     Updated max and min relative average values
+1.4.5 (11-22-20):   Fixed error that occasionally caused a message when finishing a race or starting a new one
 =================================================================================================================*/
 
 var status={
@@ -171,7 +172,11 @@ function adjustedReplay() {
             return;
         }
 
-        let currentUnlagged = (document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(3) > td > table > tbody > tr > td:nth-child(4) > span').innerText || '0 WPM').split(' WPM')[0]
+        let unlaggedTag = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(3) > td > table > tbody > tr > td:nth-child(4) > span');
+        if(!!!unlaggedTag)
+            return;
+
+        let currentUnlagged = (unlaggedTag.innerText || '0 WPM').split(' WPM')[0]
         let partialAdjusted = status.latestPartialAdjusteds[replayCursor];
         let resultStr = partialAdjusted.toFixed(2)+' WPM'
         let titleStr = partialAdjusted.toFixed(8)+' WPM';
