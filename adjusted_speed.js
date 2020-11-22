@@ -47,10 +47,10 @@ const SHOW_DESSLEJUSTED = false;
                     Reverse lagged scores are now highlighted in red at the end of races
 1.4.2 (09-07-20):   Added a Difficulty value on race and text details pages
 1.4.4 (11-18-20):   Typeracer responsive theme update support
-                    Fixed the Peak adjusted button "P"
-		            Fixed crashing on Firefox (no after-race replay yet)
+                    Fixed the Peak adjusted button "P" under race replays
+		    Fixed crashing on Firefox (no after-race adjusted value yet)
                     Updated max and min relative average values
-1.4.5 (11-22-20):   Fixed error that occasionally caused a message when finishing a race or starting a new one
+1.4.5 (11-22-20):   Fixed error that occasionally caused an error popup when finishing a race or starting a new one
 =================================================================================================================*/
 
 var status={
