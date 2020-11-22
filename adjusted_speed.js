@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.4.5
+// @version      1.4.6
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -9,6 +9,7 @@
 // @match        https://data.typeracer.com/pit/text_info*
 // @match        https://data.typeracer.com/pit/result*
 // @match        https://play.typeracer.com/*
+// @match        https://staging.typeracer.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @require      http://code.jquery.com/jquery-3.4.1.min.js
@@ -50,7 +51,8 @@ const SHOW_DESSLEJUSTED = false;
                     Fixed the Peak adjusted button "P" under race replays
 		    Fixed crashing on Firefox (no after-race adjusted value yet)
                     Updated max and min relative average values
-1.4.5 (11-22-20):   Fixed error that occasionally caused an error popup when finishing a race or starting a new one
+1.4.6 (11-22-20):   Fixed error that occasionally caused an error popup when finishing a race or starting a new one
+                    Added back staging.typeracer.com support
 =================================================================================================================*/
 
 var status={
