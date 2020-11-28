@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.4.6
+// @version      1.4.7
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -16,8 +16,6 @@
 // @connect      data.typeracer.com
 // @connect      typeracerdata.com
 // ==/UserScript==
-
-
 
 /*=========SETTINGS=============*/
 const SHOW_DESSLEJUSTED = false;
@@ -53,6 +51,7 @@ const SHOW_DESSLEJUSTED = false;
                     Updated max and min relative average values
 1.4.6 (11-22-20):   Fixed error that occasionally caused an error popup when finishing a race or starting a new one
                     Added back staging.typeracer.com support
+1.4.7 (11-28-20):   November 27 update support
 =================================================================================================================*/
 
 var status={
@@ -236,22 +235,22 @@ var newRB = function RB(b, c, d) {
     var e, f, g, h;
     h = new $wnd.XMLHttpRequest;
     try {
-        Nsb(h, b.c, b.g)
+        Osb(h, b.c, b.g)
     } catch (a) {
-        a = n8(a);
+        a = o8(a);
         if (vG(a, 229)) {
             e = a;
             g = new _B(b.g);
             xl(g, new $B(e.lc()));
-            throw o8(g)
+            throw p8(g)
         } else
-            throw o8(a)
+            throw p8(a)
     }
     TB(b, h);
     b.d && (h.withCredentials = true,
     undefined);
     f = new MB(h,b.f,d);
-    Osb(h, new WB(f,d));
+    Psb(h, new WB(f,d));
     try {
         h.send(c) //This is where the POST data is sent
         /* ----- Start NEW CODE ----- */
@@ -261,37 +260,39 @@ var newRB = function RB(b, c, d) {
             window.localStorage.setItem('latestTypingLog',typingLog);
         }
         /* ------ END NEW CODE ------ */
+
     } catch (a) {
-        a = n8(a);
+        a = o8(a);
         if (vG(a, 229)) {
             e = a;
-            throw o8(new $B(e.lc()))
+            throw p8(new $B(e.lc()))
         } else
-            throw o8(a)
+            throw p8(a)
     }
     return f
 }
 // In the obsfucated Responsive theme chromium code, the log sender function is called XF
 var newXF = function XF(b, c, d) {
+
     var e, f, g, h;
     h = new $wnd.XMLHttpRequest;
     try {
-        sxb(h, b.c, b.g)
+        txb(h, b.c, b.g)
     } catch (a) {
-        a = Dcb(a);
+        a = Ecb(a);
         if (DK(a, 233)) {
             e = a;
             g = new fG(b.g);
             Gp(g, new eG(e.lc()));
-            throw Ecb(g)
+            throw Fcb(g)
         } else
-            throw Ecb(a)
+            throw Fcb(a)
     }
     ZF(b, h);
     b.d && (h.withCredentials = true,
     undefined);
     f = new SF(h,b.f,d);
-    txb(h, new aG(f,d));
+    uxb(h, new aG(f,d));
     try {
         h.send(c)  //This is where the POST data is sent
         /* ----- Start NEW CODE ----- */
@@ -302,12 +303,12 @@ var newXF = function XF(b, c, d) {
         }
         /* ------ END NEW CODE ------ */
     } catch (a) {
-        a = Dcb(a);
+        a = Ecb(a);
         if (DK(a, 233)) {
             e = a;
-            throw Ecb(new eG(e.lc()))
+            throw Fcb(new eG(e.lc()))
         } else
-            throw Ecb(a)
+            throw Fcb(a)
     }
     return f
 }
@@ -463,6 +464,8 @@ setInterval(guiClock,1);
 
 function getPracticeRaceData() {
     let latestTypingLog = window.localStorage.getItem('latestTypingLog');
+    if(latestTypingLog == undefined)
+        return;
     let latestSpeeds = logToSpeeds(latestTypingLog);
     showPracticeRaceData(latestSpeeds);
 }
