@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         Flagging Page Enhancer
 // @namespace    http://tampermonkey.net/
-// @version      0.4
+// @version      0.5
+// @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/dqcolumn.js
+// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/dqcolumn.js
 // @description  Adds a 'disqualified status' column, and translates IPs into locations
 // @author       mako640, poem
 // @include      https://data.typeracer.com/pit/admin/flagging*
@@ -9,6 +11,14 @@
 // @connect      data.typeracer.com
 // @connect      api.ipstack.com
 // ==/UserScript==
+
+
+/*====================CHANGELOG===================
+0.3               initial release
+0.4 (11-20-2020)  Responsive theme update support
+0.5 (11-28-2020)  Auto updates support
+=================================================*/
+
 
                         /*GENERAL SETUP*/
 'use strict';
@@ -22,13 +32,14 @@ var displayErrorLine = document.createElement('h2');
 displayErrorLine.style.color='red';
 for (const h of document.querySelectorAll('h2')) {
     if (h.textContent.includes('Results')) {
-        let container = document.getElementsByClassName('themeContent')[0]
+        let container = document.getElementsByClassName('section section--boxed')[1]
         container.insertBefore(displayErrorLine,h);
+        console.log('inserted error line');
         break;
     }
 }
 // Remove left margin for less lateral scrolling
-document.getElementsByClassName('main')[0].style.paddingLeft="10px";
+document.getElementsByClassName('main')[0].style.paddingLeft="50px";
 document.getElementsByClassName('themeContent')[0].style.marginLeft = 0;
 function getRandomInt(max) {
   return Math.floor(Math.random() * Math.floor(max));
@@ -56,7 +67,7 @@ var translation_status = []; //format: [[ip,success (default T/F),color_id,city,
 var latest_translation = 0; //used to assign a translation_id to a new translation
 
 //list of 80 maximally distinct colors
-const colors = ["#000000", "#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941", "#006FA6", "#A30059",
+const colors = ["#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941", "#006FA6", "#A30059",
         "#FFDBE5", "#7A4900", "#0000A6", "#63FFAC", "#B79762", "#004D43", "#8FB0FF", "#997D87",
         "#5A0007", "#809693", "#FEFFE6", "#1B4400", "#4FC601", "#3B5DFF", "#4A3B53", "#FF2F80",
         "#61615A", "#BA0900", "#6B7900", "#00C2A0", "#FFAA92", "#FF90C9", "#B903AA", "#D16100",
