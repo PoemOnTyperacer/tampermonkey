@@ -66,9 +66,6 @@ let status = {
     maximumAdjustedIndex: 0,
     maximumAdjustedValue: 'undefined',
     reverseLag: false,
-    waiting: false,
-    waitingCounter: 0,
-    latestDifficulty: 'undefined',
     averageDifficulty: 'undefined'
 }
 
@@ -162,7 +159,7 @@ function createAdjustedReplay() { // assumption: replay window exists
     let maxAdjButton = getElementFromString('td', '<img src="https://github.com/PoemOnTyperacer/tampermonkey/blob/master/peak_button_2.png?raw=true" style="width: 15px; height: 20px;" border="0" class="ImageButton" title="Go to peak adjusted speed: ' + status.maximumAdjustedValue + '">');
     maxAdjButton.style.position = 'relative';
     maxAdjButton.id = 'maxAdjButton';
-    
+
     buttonsLine.appendChild(maxAdjButton);
     maxAdjButton.onclick = function () { navigateLogTo(status.maximumAdjustedIndex) };
 
@@ -174,11 +171,11 @@ function createAdjustedReplay() { // assumption: replay window exists
         const partialAdjusted = status.latestPartialAdjusteds[replayCursor];
         const resultStr = partialAdjusted.toFixed(2) + ' WPM'
         const titleStr = partialAdjusted.toFixed(8) + ' WPM';
-        
+
         adjustedReplayDisplay.innerText = resultStr;
         adjustedReplayDisplay.title = titleStr;
     });
-    observer.observe(acceptedCharsElem, {characterData: true, childList: true});
+    observer.observe(acceptedCharsElem, { characterData: true, childList: true });
 }
 
 function navigateLogTo(index) { // assumption: replay window exists
@@ -209,7 +206,7 @@ function navigateLogTo(index) { // assumption: replay window exists
     if (!status.url.startsWith('https://data.typeracer.com/')) {
         XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
 
-        XMLHttpRequest.prototype.send = function(body) { // intercept XMLHttpRequests which contain data we need
+        XMLHttpRequest.prototype.send = function (body) { // intercept XMLHttpRequests which contain data we need
             if (body.search("TLv1") != -1) {
                 let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(body)[1];
                 //             console.log('caught log: '+typingLog);
@@ -398,8 +395,7 @@ function navigateLogTo(index) { // assumption: replay window exists
         if (match == null)
             return;
         let text_id = match[1];
-        await refreshLatestDifficulty(text_id);
-        let relative_average = status.latestDifficulty;
+        let relative_average = await getLatestDifficulty(text_id); // TODO: try/catch
         let difficulty = relativeAverageToDifficulty(relative_average);
 
         let difficultyLine = getElementFromString('tr', '<th title="Average difficulty: ' + status.averageDifficulty + '">Difficulty:</th><td>' + difficulty + '</td>');
@@ -503,87 +499,83 @@ function navigateLogTo(index) { // assumption: replay window exists
             console.log("[D.TR-P] error: " + err);
             return;
         }
-        if (response.status !== 200)
+        if (response.status !== 200) {
+            console.log("[D.TR-P] received non-200 status code when requesting data");
             return;
+        }
 
         const data = await response.json();
-        
-        for (let i = 0; i < data.length; i++) {
-            if (data[i].gn == race_number) // In case timespan contained multiple races
-            {
-                // Display values
-                let registered_speed = parseFloat(data[i].wpm);
-                //                     registered_speed = 69.79;
+        const raceData = data.find(race => race.gn == race_number);
 
-                let t_total_lagged = quote_length / registered_speed; // s/12
-                let ping = Math.round((t_total_lagged - t_total / 12000) * 12000); // ms
-
-                let reverse_lag_style = '';
-                if (unlagged_speed < registered_speed)
-                    reverse_lag_style = ' color:red; font-weight: 1000;';
-                registered_speed = registered_speed.toFixed(2);
-                unlagged_speed = unlagged_speed.toFixed(2);
-                adjusted_speed = adjusted_speed.toFixed(3);
-                desslejusted = desslejusted.toFixed(2);
-
-
-                let text_id = data[i].tid;
-                await refreshLatestDifficulty(text_id);
-                let relative_average = status.latestDifficulty;
-                //                     console.log("relative average: "+relative_average);
-                let difficulty = relativeAverageToDifficulty(relative_average);
-
-                let points = Math.round(data[i].pts);
-                let ghost_button_html = document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ') > td:nth-child(2) > a').outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
-
-                let pointsRow = document.createElement("tr");
-                pointsRow.innerHTML = '<td>Points</td><td>' + points + '</td>';
-                document.querySelector('.raceDetails > tbody').appendChild(pointsRow);
-
-                let avgDifficultyRow = document.createElement("tr");
-                avgDifficultyRow.innerHTML = '<td title="Average difficulty: ' + status.averageDifficulty + '">Difficulty</td><td>' + difficulty + '</td>';
-                document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
-                let ds_html = '';
-                if (SHOW_DESSLEJUSTED) {
-                    ds_html = '<tr><td>Desslejusted</td><td>' + desslejusted + ' WPM</td></tr>';
-                }
-                document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM (ping: ' + ping + 'ms)</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM (start: ' + start_time_ms + 'ms)</td></tr>' + ds_html + '<br>';
-            }
+        if (!raceData) {
+            console.log("[D.TR-P] couldn't find race data");
+            return;
         }
+
+        // Display values
+        let registered_speed = parseFloat(raceData.wpm);
+        //                     registered_speed = 69.79;
+
+        let t_total_lagged = quote_length / registered_speed; // s/12
+        let ping = Math.round((t_total_lagged - t_total / 12000) * 12000); // ms
+
+        let reverse_lag_style = '';
+        if (unlagged_speed < registered_speed)
+            reverse_lag_style = ' color:red; font-weight: 1000;';
+        registered_speed = registered_speed.toFixed(2);
+        unlagged_speed = unlagged_speed.toFixed(2);
+        adjusted_speed = adjusted_speed.toFixed(3);
+        desslejusted = desslejusted.toFixed(2);
+
+
+        let text_id = raceData.tid;
+        let relative_average = await getLatestDifficulty(text_id); // TODO: try/catch
+        //                     console.log("relative average: "+relative_average);
+        let difficulty = relativeAverageToDifficulty(relative_average);
+
+        let points = Math.round(raceData.pts);
+        let ghost_button_html = document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ') > td:nth-child(2) > a').outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
+
+        let pointsRow = document.createElement("tr");
+        pointsRow.innerHTML = '<td>Points</td><td>' + points + '</td>';
+        document.querySelector('.raceDetails > tbody').appendChild(pointsRow);
+
+        let avgDifficultyRow = document.createElement("tr");
+        avgDifficultyRow.innerHTML = '<td title="Average difficulty: ' + status.averageDifficulty + '">Difficulty</td><td>' + difficulty + '</td>';
+        document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
+        let ds_html = '';
+        if (SHOW_DESSLEJUSTED) {
+            ds_html = '<tr><td>Desslejusted</td><td>' + desslejusted + ' WPM</td></tr>';
+        }
+        document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM (ping: ' + ping + 'ms)</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM (start: ' + start_time_ms + 'ms)</td></tr>' + ds_html + '<br>';
     }
 })();
 
-async function refreshLatestDifficulty(id) {
-    // grabbing typeracerdata's relative average value, which may be used as an indicator of its difficulty
-    // Thanks to noah for promptly building this api at my request, to make this feature possible!
-    let api_text_url = 'http://typeracerdata.com/api_text?id=' + id;
-    GM_xmlhttpRequest({
-        method: 'GET',
-        url: api_text_url,
-        onload: function (response) {
-            try {
-                let response_text = response.responseText;
-                let data = JSON.parse(response_text);
-                status.latestDifficulty = data.text_stats.relative_average;
+function getLatestDifficulty(id) {
+    const apiPromise = new Promise((resolve, reject) => {
+        // grabbing typeracerdata's relative average value, which may be used as an indicator of its difficulty
+        // Thanks to noah for promptly building this api at my request, to make this feature possible!
+        let api_text_url = 'http://typeracerdata.com/api_text?id=' + id;
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: api_text_url,
+            onload: function (response) {
+                try {
+                    let response_text = response.responseText;
+                    let data = JSON.parse(response_text);
+                    resolve(data.text_stats.relative_average);
+                }
+                catch (error) {
+                    reject(new Error("[getQuoteDifficulty] error when accessing typeracerdata api: " + error));
+                }
             }
-            catch (error) {
-                console.log('[getQuoteDifficulty] error when accessing typeracerdata api: ' + error);
-            }
-            status.waiting = false;
-        }
+        });
     });
-    status.waiting = true;
-    status.waiting_counter = 0;
-    while (status.waiting) {
-        if (status.waitingCounter >= 300) {
-            console.log('[getQuoteDifficulty] Error: request to typeracerdata timed out (3s)');
-            status.waiting = false;
-            status.latestDifficulty = 'error';
-            break;
-        }
-        status.waitingCounter++;
-        await sleep(10);
-    }
+    const timeoutPromise = new Promise(async (resolve, reject) => {
+        await sleep(3000);
+        reject(new Error("[getLatestDifficulty] Error: request to typeracerdata timed out (3s)"));
+    });
+    return Promise.race([apiPromise, timeoutPromise]);
 }
 
 // This function converts typeracerdata's Relative Average into a 0%-100% difficulty
