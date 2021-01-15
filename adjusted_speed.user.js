@@ -11,7 +11,6 @@
 // @match        https://staging.typeracer.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
-// @require      http://code.jquery.com/jquery-3.4.1.min.js
 // @connect      data.typeracer.com
 // @connect      typeracerdata.com
 // ==/UserScript==
@@ -226,102 +225,19 @@ function navigateLogTo(index) {
 
 // AFTER-RACE ADJUSTED
 
-if (!status.url.startsWith('https://data.typeracer.com/') && !status.isFirefox) {
-
-    // Modified log sender function:
-    // in the obsfucated new classic theme chromium code, the log sender function is called RB
-    var newRB = function RB(b, c, d) {
-        var e, f, g, h;
-        h = new $wnd.XMLHttpRequest;
-        try {
-            Osb(h, b.c, b.g)
-        } catch (a) {
-            a = o8(a);
-            if (vG(a, 229)) {
-                e = a;
-                g = new _B(b.g);
-                xl(g, new $B(e.lc()));
-                throw p8(g)
-            } else
-                throw p8(a)
-        }
-        TB(b, h);
-        b.d && (h.withCredentials = true,
-            undefined);
-        f = new MB(h, b.f, d);
-        Psb(h, new WB(f, d));
-        try {
-            h.send(c) //This is where the POST data is sent
-            /* ----- Start NEW CODE ----- */
-            if (c.search("TLv1") != -1) {
-                let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(c)[1];
-                //             console.log('caught log: '+typingLog);
-                window.localStorage.setItem('latestTypingLog', typingLog);
-            }
-            /* ------ END NEW CODE ------ */
-
-        } catch (a) {
-            a = o8(a);
-            if (vG(a, 229)) {
-                e = a;
-                throw p8(new $B(e.lc()))
-            } else
-                throw p8(a)
-        }
-        return f
-    }
-    // In the obsfucated Responsive theme chromium code, the log sender function is called XF
-    var newXF = function XF(b, c, d) {
-
-        var e, f, g, h;
-        h = new $wnd.XMLHttpRequest;
-        try {
-            txb(h, b.c, b.g)
-        } catch (a) {
-            a = Ecb(a);
-            if (DK(a, 233)) {
-                e = a;
-                g = new fG(b.g);
-                Gp(g, new eG(e.lc()));
-                throw Fcb(g)
-            } else
-                throw Fcb(a)
-        }
-        ZF(b, h);
-        b.d && (h.withCredentials = true,
-            undefined);
-        f = new SF(h, b.f, d);
-        uxb(h, new aG(f, d));
-        try {
-            h.send(c)  //This is where the POST data is sent
-            /* ----- Start NEW CODE ----- */
-            if (c.search("TLv1") != -1) {
-                let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(c)[1];
-                //             console.log('caught log: '+typingLog);
-                window.localStorage.setItem('latestTypingLog', typingLog);
-            }
-            /* ------ END NEW CODE ------ */
-        } catch (a) {
-            a = Ecb(a);
-            if (DK(a, 233)) {
-                e = a;
-                throw Fcb(new eG(e.lc()))
-            } else
-                throw Fcb(a)
-        }
-        return f
-    }
-
+if (!status.url.startsWith('https://data.typeracer.com/')) {
     function replaceJs() {
-        if (status.isFirefox) {
-            console.log('[Adjusted speed] warning: log catcher not yet firefox-compatible');
-            return;
-        }
-        if (status.responsiveTheme) {
-            com_typeracer_redesign_Redesign.onScriptDownloaded(newXF.toString());
-        }
-        else {
-            com_typeracer_guest_Guest.onScriptDownloaded(newRB.toString());
+        if (!XMLHttpRequest.prototype.hasOwnProperty("oldSend")) {
+            XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
+
+            XMLHttpRequest.prototype.send = function(body) {
+                if (body.search("TLv1") != -1) {
+                    let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(body)[1];
+                    //             console.log('caught log: '+typingLog);
+                    window.localStorage.setItem('latestTypingLog', typingLog);
+                }
+                return this.oldSend(body);
+            }
         }
     }
 
@@ -608,13 +524,13 @@ else {
 
             // Race context
             var [race_universe, univ_index] = ["play", 4];
-            if ($('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(1)')[0].innerText == "Universe") {
-                race_universe = $('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2)')[0].innerText;
+            if (document.querySelector('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(1)').innerText == "Universe") {
+                race_universe = document.querySelector('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2)').innerText;
                 univ_index++;
             }
-            var player_name = /.*\((.*)\)$/.exec($('.raceDetails > tbody > tr:nth-child(1) > td:nth-child(2)')[0].innerText)[1];
-            var race_number = $('.raceDetails > tbody > tr:nth-child(2) > td:nth-child(2)')[0].innerText;
-            var date_str = $('.raceDetails > tbody > tr:nth-child(3) > td:nth-child(2)')[0].innerText;
+            var player_name = /.*\((.*)\)$/.exec(document.querySelector('.raceDetails > tbody > tr:nth-child(1) > td:nth-child(2)').innerText)[1];
+            var race_number = document.querySelector('.raceDetails > tbody > tr:nth-child(2) > td:nth-child(2)').innerText;
+            var date_str = document.querySelector('.raceDetails > tbody > tr:nth-child(3) > td:nth-child(2)').innerText;
 
             // Race timespan
             var date_obj = new Date(date_str);
@@ -656,13 +572,19 @@ else {
                                 let difficulty = relativeAverageToDifficulty(relative_average);
 
                                 var points = Math.round(data[i].pts);
-                                var ghost_button_html = $('.raceDetails > tbody > tr:nth-child(' + univ_index + ') > td:nth-child(2) > a')[0].outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
-                                $('.raceDetails > tbody').append($('<tr><td>Points</td><td>' + points + '</td></tr>'));
-                                $('.raceDetails > tbody').append($('<tr><td title="Average difficulty: ' + status.averageDifficulty + '">Difficulty</td><td>' + difficulty + '</td></tr>'));
+                                var ghost_button_html = document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ') > td:nth-child(2) > a').outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
+
+                                let pointsRow = document.createElement("tr");
+                                pointsRow.innerHTML = '<td>Points</td><td>' + points + '</td>';
+                                document.querySelector('.raceDetails > tbody').appendChild(pointsRow);
+
+                                let avgDifficultyRow = document.createElement("tr");
+                                avgDifficultyRow.innerHTML = '<td title="Average difficulty: ' + status.averageDifficulty + '">Difficulty</td><td>' + difficulty + '</td>';
+                                document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
                                 let ds_html = '';
                                 if (SHOW_DESSLEJUSTED)
                                     ds_html = '<tr><td>Desslejusted</td><td>' + desslejusted + ' WPM</td></tr>'
-                                $('.raceDetails > tbody > tr:nth-child(' + univ_index + ')')[0].outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM (ping: ' + ping + 'ms)</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM (start: ' + start_time_ms + 'ms)</td></tr>' + ds_html + '<br>';
+                                    document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM (ping: ' + ping + 'ms)</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM (start: ' + start_time_ms + 'ms)</td></tr>' + ds_html + '<br>';
                             }
                         }
                     });
