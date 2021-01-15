@@ -61,8 +61,6 @@ let status = {
     responsiveTheme: typeof com_typeracer_redesign_Redesign === "function",
     room: 'other',
     race: 'none',
-    createdDisplayTag: false,
-    displayTag: null,
     latestPartialAdjusteds: [],
     delays: [],
     maximumAdjustedIndex: 0,
@@ -73,8 +71,6 @@ let status = {
     latestDifficulty: 'undefined',
     averageDifficulty: 'undefined'
 }
-
-alert("Responsive theme: " + (status.responsiveTheme ? "true" : "false"))
 
 if (status.responsiveTheme)
     GM_addStyle(`
@@ -170,16 +166,17 @@ function createAdjustedReplay() { // assumption: replay window exists
     buttonsLine.appendChild(maxAdjButton);
     maxAdjButton.onclick = function () { navigateLogTo(status.maximumAdjustedIndex) };
 
+    const adjustedReplayDisplay = document.getElementById("adjustedReplayDisplay");
     const acceptedCharsElem = document.getElementsByClassName('acceptedChars')[0];
     const observer = new MutationObserver(() => {
         console.log("Mutation triggered");
-        const replayCursor = acceptedCharsElem.length;
+        const replayCursor = acceptedCharsElem.innerText.length;
         const partialAdjusted = status.latestPartialAdjusteds[replayCursor];
         const resultStr = partialAdjusted.toFixed(2) + ' WPM'
         const titleStr = partialAdjusted.toFixed(8) + ' WPM';
         
-        displayTag.innerText = resultStr;
-        displayTag.title = titleStr;
+        adjustedReplayDisplay.innerText = resultStr;
+        adjustedReplayDisplay.title = titleStr;
     });
     observer.observe(acceptedCharsElem, {characterData: true, childList: true});
 }
@@ -195,7 +192,8 @@ function navigateLogTo(index) { // assumption: replay window exists
 
     const acceptedCharsElem = document.getElementsByClassName('acceptedChars')[0];
     const max_increm = 10000;
-    for (let increm = 0; acceptedCharsElem.innerText.length != index && increm < max_increm; increm++) {
+    let increm;
+    for (increm = 0; acceptedCharsElem.innerText.length != index && increm < max_increm; increm++) {
         nextFrame.click();
     }
 
@@ -206,239 +204,45 @@ function navigateLogTo(index) { // assumption: replay window exists
     }
 }
 
-// AFTER-RACE ADJUSTED
+(async () => {
+    // AFTER-RACE ADJUSTED
+    if (!status.url.startsWith('https://data.typeracer.com/')) {
+        XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
 
-if (!status.url.startsWith('https://data.typeracer.com/')) {
-    XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
-
-    XMLHttpRequest.prototype.send = function(body) { // intercept XMLHttpRequests which contain data we need
-        if (body.search("TLv1") != -1) {
-            let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(body)[1];
-            //             console.log('caught log: '+typingLog);
-            window.localStorage.setItem('latestTypingLog', typingLog);
-        }
-        return this.oldSend(body);
-    }
-
-    function logToSpeeds(log_contents) {
-        let x = 0;
-        while (x < log_contents.length) {
-            if (log_contents.charCodeAt(x) == 8) { // should never be the last character
-                //             corrupted numbers and dashes
-                log_contents = log_contents.replaceAt(x + 1, 'X');
-                log_contents = log_contents.removeAt(x);
+        XMLHttpRequest.prototype.send = function(body) { // intercept XMLHttpRequests which contain data we need
+            if (body.search("TLv1") != -1) {
+                let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(body)[1];
+                //             console.log('caught log: '+typingLog);
+                window.localStorage.setItem('latestTypingLog', typingLog);
             }
-            x++;
+            return this.oldSend(body);
         }
 
-        //     The contents of the quote don't matter, so long as we don't lose the quote length information.
-        //     So, let's turn any log into a series of non-digit characters separated by delays
-        log_contents = log_contents.replace(/(\\b.)/g, 'N'); //numbers and dashes
-        log_contents = log_contents.replace(/(\\u....)/g, 'S'); //special characters
-        log_contents = log_contents.replace(/(\\)\D/g, 'E'); //excepted characters
-
-        //     console.log('repaired and simplified log: '+log_contents);
-
-        log_contents = log_contents.replace(/^./, '');
-        let start = parseInt(/(\d*)?/.exec(log_contents)[1]);
-
-        let quote_length = 1;
-        let total_time = 0;
-
-        //     Count non-digits and add up delays
-        let i = 0;
-        let num = '';
-        let partialAdjusteds = [0];
-        let delays = [];
-        let maxAdj = [0, 0]; //maximum partial adjusted speed [index, value]
-        while (log_contents[i]) {
-            num += log_contents[i];
-            if (i == log_contents.length - 1) {
-                total_time += parseInt(num);
-                delays.push(num);
-            }
-            else if (!log_contents[i + 1].match(/\d/i)) {
-                total_time += parseInt(num);
-                delays.push(num);
-                num = '';
-                let partialAdjusted = 12000 * (quote_length - 1) / (total_time - start) || Infinity;
-                partialAdjusteds.push(partialAdjusted);
-                if (partialAdjusted > maxAdj[1] && partialAdjusted != Infinity) {
-                    maxAdj = [quote_length, partialAdjusted];
+        function logToSpeeds(log_contents) {
+            let x = 0;
+            while (x < log_contents.length) {
+                if (log_contents.charCodeAt(x) == 8) { // should never be the last character
+                    //             corrupted numbers and dashes
+                    log_contents = log_contents.replaceAt(x + 1, 'X');
+                    log_contents = log_contents.removeAt(x);
                 }
-                quote_length++;
-                i = i + 2;
-                continue;
-            }
-            i++;
-        }
-
-        let unlagged_speed = 12000 * quote_length / total_time;
-        let adjusted_speed = 12000 * (quote_length - 1) / (total_time - start);
-        let lagged_speed_str = (((document.getElementsByClassName('tblOwnStatsNumber') || [])[0] || {}).innerText || ' wpm').split(' wpm')[0];
-        let lagged_speed = parseInt(lagged_speed_str);
-        if ((lagged_speed_str == '' || lagged_speed > unlagged_speed + 1)) { //only approximate lagged wpm available before saving
-            status.reverseLag = true;
-        }
-
-        partialAdjusteds.push(adjusted_speed);
-        if (adjusted_speed > maxAdj[1]) {
-            maxAdj = [quote_length - 1, adjusted_speed];
-        }
-        status.latestPartialAdjusteds = partialAdjusteds;
-        status.delays = delays;
-        status.maximumAdjustedIndex = maxAdj[0];
-        status.maximumAdjustedValue = maxAdj[1].toFixed(3);
-        //console.log('delays: '+delays);
-        //     console.log('partial adjusteds: '+partialAdjusteds);
-        //console.log('max adj: '+maxAdj);
-
-        let data = {
-            unlagged: unlagged_speed,
-            adjusted: adjusted_speed,
-            start: start,
-        }
-        return data;
-    }
-
-    // the script needs to know where it is, because one can leave a ghost, navigate, join a practice racetrack without reloading the page
-
-    function guiClock() {
-        let roomTitle = ((document.getElementsByClassName('room-title') || [])[0] || {}).innerText || '';
-        let ghost_warning = ((document.getElementsByClassName('gwt-InlineHTML') || [])[0] || {}).innerHTML || '';
-        let gameStatus = ((document.getElementsByClassName('gameStatusLabel') || [])[0] || {}).innerHTML || '';
-
-        if (roomTitle == "Practice Racetrack") {
-            if (ghost_warning.includes('You are racing against')) {
-                if (status.room != 'ghost')
-                    status.room = 'ghost';
-            }
-            else {
-                if (status.room != 'practice')
-                    status.room = 'practice';
-            }
-        }
-        else if (gameStatus != '') {
-            if (status.room != 'public')
-                status.room = 'public';
-        }
-        else {
-            if (status.room != 'other') {
-                status.room = 'other';
-                status.race = 'none';
-                status.createdDisplayTag = false;
-            }
-        }
-        if (status.room != 'other') {
-            if (gameStatus == 'The race is about to start!') {
-                if (status.race != 'waiting')
-                    status.race = 'waiting';
-            }
-            else if (gameStatus == 'Go!' || gameStatus.startsWith('The race is on')) {
-                status.createdDisplayTag = false;
-                status.reverseLag = false;
-                if (status.race != 'racing')
-                    status.race = 'racing';
-            }
-            else if (gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')) {
-                if (status.race != 'finished') {
-                    status.race = 'finished';
-                    getPracticeRaceData();
-                }
-            }
-        }
-    }
-    setInterval(guiClock, 1);
-
-    function getPracticeRaceData() {
-        let latestTypingLog = window.localStorage.getItem('latestTypingLog');
-        if (latestTypingLog == undefined)
-            return;
-        let latestSpeeds = logToSpeeds(latestTypingLog);
-        showPracticeRaceData(latestSpeeds);
-    }
-
-    async function showPracticeRaceData(speeds) {
-        let timeLine = document.querySelector('.tblOwnStats > tbody > tr:nth-child(2)');
-        let tblOwnStatsBody = timeLine.parentNode;
-        let unlaggedResult = speeds.unlagged.toFixed(2) + ' wpm';
-        let adjustedResult = speeds.adjusted.toFixed(2) + ' wpm';
-        let startResult = speeds.start + 'ms';
-        let unlaggedLine = getElementFromString('tr', '<td>Unlagged:</td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><span class="unlagged">' + unlaggedResult + '</span></div></td>');
-        let startLine = getElementFromString('tr', '<td>Start:</td><td><div class="startDisplay tblOwnStatsNumber" style=""><span class="start">' + startResult + '</span></div></td>');
-
-        //     if i eventually figure out a way to find the quote id:
-        //     await refreshLatestDifficulty(id);
-        //     let difficultyLine = getElementFromString('tr','<td>Difficulty:</td><td><div class="diffDisplay tblOwnStatsNumber" style=""><span class="diff">'+status.latestDifficulty+'</span></div></td>');
-
-        let adjustedStyle = '';
-        if (speeds.adjusted >= 400) {
-            adjustedStyle = ' style="color: #ff2ee0;"'; // 400 club
-        }
-        else if (speeds.adjusted >= 300) {
-            adjustedStyle = ' style="color: #ffc22a;"'; // 300 club
-        }
-        let laggedTag = document.getElementsByClassName('tblOwnStatsNumber')[0];
-        if (status.reverseLag)
-            laggedTag.style.color = '#ff0000';
-        let adjustedLine = getElementFromString('tr', '<td' + adjustedStyle + '>Adjusted:</td><td><div class="adjustedDisplay tblOwnStatsNumber" style=""><span class="adjusted"' + adjustedStyle + '>' + adjustedResult + '</span></div></td>');
-
-        tblOwnStatsBody.insertBefore(document.createElement('br'), timeLine);
-        tblOwnStatsBody.insertBefore(unlaggedLine, timeLine);
-        tblOwnStatsBody.insertBefore(adjustedLine, timeLine);
-        tblOwnStatsBody.insertBefore(startLine, timeLine);
-        //     tblOwnStatsBody.insertBefore(difficultyLine,timeLine);
-        tblOwnStatsBody.insertBefore(document.createElement('br'), timeLine);
-        unlaggedLine.style.backgroundImage = 'none';
-        adjustedLine.style.backgroundImage = 'none';
-
-        createAdjustedReplay();
-    }
-}
-
-//DIFFICULTY ON TEXT DETAILS PAGES
-else if (status.url.startsWith('https://data.typeracer.com/pit/text_info')) {
-    async function main() {
-        let match = /id=(.*)/.exec(status.url)
-        if (match == null)
-            return;
-        let text_id = match[1];
-        await refreshLatestDifficulty(text_id);
-        let relative_average = status.latestDifficulty;
-        let difficulty = relativeAverageToDifficulty(relative_average);
-
-        let difficultyLine = getElementFromString('tr', '<th title="Average difficulty: ' + status.averageDifficulty + '">Difficulty:</th><td>' + difficulty + '</td>');
-        document.querySelector('.avgStatsTable > tbody').appendChild(difficultyLine);
-    }
-    main();
-}
-
-// MORE VALUES ON RACE DETAILS PAGE
-else {
-    status.room = 'race_details';
-
-    // Wait for page loading to access replay
-    window.addEventListener('load', function () {
-        setTimeout(async function () {
-
-            //Cleaner detail
-            document.querySelector('.raceDetails > tbody > tr:nth-child(2) > td').innerText = "Race";
-
-            // typingLog is declared in page script
-            let log_contents = typingLog.substring(0, typingLog.indexOf('|'))
-            for (let i = 0; i < 3; i++) {
-                log_contents = log_contents.substring(log_contents.indexOf(',') + 1)
+                x++;
             }
 
-            // log_contents = 'D268o270n161\'240t79 64m113a62k98e79 49a96s143s143u82m223p401t256i80o160n143s65 96-448 303f191i81n159d3 77t98h294e42 46c113o31u146r31a97g128e191 49t128o35 107a49s111k97 128q112u113e78s210t159i64o128n161s79 81a79n111d65 81e240t479o64 128e112x208p97r110e178s159s145 62w80h98a80t111 79y97o31u177 65r64e191a95l98l95y63 80w145a81n88t86.160 96C193o191m161m113u176n158i146c224a94t202e184 79w64i66t93h192 81o576t84h172e176r160s176 80a47s179 94c241l63e127a96r112l464;2y48l672y62 98a207y928 96a208s112 80y175o66u143 48c31a112n65 112t81o94t1026o48 143a80v145o78i145d160 81m127i193s287u207n161d112e113r128s191t177a111n97d110i129n145g95s193,111 239s161a113d807n113e128s175s129 65a63n95d97 63d113r160e241a110a546m62a97.160 208W160i193t94h194 48t127h176i112j1377u160s48t160 63t113h159i64s161 47o96n145e80 47a63g161g145r216e167r1329e143e177m367e111n97t112,897 351y1184o48u159 82c79a79n161 159c225o97m159p207l128e98t110e113l512y111 225t143r337a208n96s127f273o111r112m81 97y79o64u128r65 48l62i146f48e47.96';
-            //     Parsing the log to access partial adjusted speeds
+            //     The contents of the quote don't matter, so long as we don't lose the quote length information.
+            //     So, let's turn any log into a series of non-digit characters separated by delays
             log_contents = log_contents.replace(/(\\b.)/g, 'N'); //numbers and dashes
             log_contents = log_contents.replace(/(\\u....)/g, 'S'); //special characters
             log_contents = log_contents.replace(/(\\)\D/g, 'E'); //excepted characters
+
+            //     console.log('repaired and simplified log: '+log_contents);
+
             log_contents = log_contents.replace(/^./, '');
             let start = parseInt(/(\d*)?/.exec(log_contents)[1]);
+
             let quote_length = 1;
             let total_time = 0;
+
             //     Count non-digits and add up delays
             let i = 0;
             let num = '';
@@ -469,96 +273,285 @@ else {
 
             let unlagged_speed = 12000 * quote_length / total_time;
             let adjusted_speed = 12000 * (quote_length - 1) / (total_time - start);
-            let desslejusted = 12000 * ((quote_length) / (total_time - start))
+            let lagged_speed_str = (((document.getElementsByClassName('tblOwnStatsNumber') || [])[0] || {}).innerText || ' wpm').split(' wpm')[0];
+            let lagged_speed = parseInt(lagged_speed_str);
+            if ((lagged_speed_str == '' || lagged_speed > unlagged_speed + 1)) { //only approximate lagged wpm available before saving
+                status.reverseLag = true;
+            }
+
             partialAdjusteds.push(adjusted_speed);
-
-            console.log('Partial Adjusted speeds: ' + partialAdjusteds);
-
+            if (adjusted_speed > maxAdj[1]) {
+                maxAdj = [quote_length - 1, adjusted_speed];
+            }
             status.latestPartialAdjusteds = partialAdjusteds;
             status.delays = delays;
             status.maximumAdjustedIndex = maxAdj[0];
             status.maximumAdjustedValue = maxAdj[1].toFixed(3);
+            //console.log('delays: '+delays);
+            //     console.log('partial adjusteds: '+partialAdjusteds);
+            //console.log('max adj: '+maxAdj);
+
+            let data = {
+                unlagged: unlagged_speed,
+                adjusted: adjusted_speed,
+                start: start,
+            }
+            return data;
+        }
+
+        // the script needs to know where it is, because one can leave a ghost, navigate, join a practice racetrack without reloading the page
+
+        function guiClock() {
+            let roomTitle = ((document.getElementsByClassName('room-title') || [])[0] || {}).innerText || '';
+            let ghost_warning = ((document.getElementsByClassName('gwt-InlineHTML') || [])[0] || {}).innerHTML || '';
+            let gameStatus = ((document.getElementsByClassName('gameStatusLabel') || [])[0] || {}).innerHTML || '';
+
+            if (roomTitle == "Practice Racetrack") {
+                if (ghost_warning.includes('You are racing against')) {
+                    if (status.room != 'ghost')
+                        status.room = 'ghost';
+                }
+                else {
+                    if (status.room != 'practice')
+                        status.room = 'practice';
+                }
+            }
+            else if (gameStatus != '') {
+                if (status.room != 'public')
+                    status.room = 'public';
+            }
+            else {
+                if (status.room != 'other') {
+                    status.room = 'other';
+                    status.race = 'none';
+                }
+            }
+            if (status.room != 'other') {
+                if (gameStatus == 'The race is about to start!') {
+                    if (status.race != 'waiting')
+                        status.race = 'waiting';
+                }
+                else if (gameStatus == 'Go!' || gameStatus.startsWith('The race is on')) {
+                    status.reverseLag = false;
+                    if (status.race != 'racing')
+                        status.race = 'racing';
+                }
+                else if (gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')) {
+                    if (status.race != 'finished') {
+                        status.race = 'finished';
+                        getPracticeRaceData();
+                    }
+                }
+            }
+        }
+        setInterval(guiClock, 1);
+
+        function getPracticeRaceData() {
+            let latestTypingLog = window.localStorage.getItem('latestTypingLog');
+            if (latestTypingLog == undefined)
+                return;
+            let latestSpeeds = logToSpeeds(latestTypingLog);
+            showPracticeRaceData(latestSpeeds);
+        }
+
+        async function showPracticeRaceData(speeds) {
+            let timeLine = document.querySelector('.tblOwnStats > tbody > tr:nth-child(2)');
+            let tblOwnStatsBody = timeLine.parentNode;
+            let unlaggedResult = speeds.unlagged.toFixed(2) + ' wpm';
+            let adjustedResult = speeds.adjusted.toFixed(2) + ' wpm';
+            let startResult = speeds.start + 'ms';
+            let unlaggedLine = getElementFromString('tr', '<td>Unlagged:</td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><span class="unlagged">' + unlaggedResult + '</span></div></td>');
+            let startLine = getElementFromString('tr', '<td>Start:</td><td><div class="startDisplay tblOwnStatsNumber" style=""><span class="start">' + startResult + '</span></div></td>');
+
+            //     if i eventually figure out a way to find the quote id:
+            //     await refreshLatestDifficulty(id);
+            //     let difficultyLine = getElementFromString('tr','<td>Difficulty:</td><td><div class="diffDisplay tblOwnStatsNumber" style=""><span class="diff">'+status.latestDifficulty+'</span></div></td>');
+
+            let adjustedStyle = '';
+            if (speeds.adjusted >= 400) {
+                adjustedStyle = ' style="color: #ff2ee0;"'; // 400 club
+            }
+            else if (speeds.adjusted >= 300) {
+                adjustedStyle = ' style="color: #ffc22a;"'; // 300 club
+            }
+            let laggedTag = document.getElementsByClassName('tblOwnStatsNumber')[0];
+            if (status.reverseLag)
+                laggedTag.style.color = '#ff0000';
+            let adjustedLine = getElementFromString('tr', '<td' + adjustedStyle + '>Adjusted:</td><td><div class="adjustedDisplay tblOwnStatsNumber" style=""><span class="adjusted"' + adjustedStyle + '>' + adjustedResult + '</span></div></td>');
+
+            tblOwnStatsBody.insertBefore(document.createElement('br'), timeLine);
+            tblOwnStatsBody.insertBefore(unlaggedLine, timeLine);
+            tblOwnStatsBody.insertBefore(adjustedLine, timeLine);
+            tblOwnStatsBody.insertBefore(startLine, timeLine);
+            //     tblOwnStatsBody.insertBefore(difficultyLine,timeLine);
+            tblOwnStatsBody.insertBefore(document.createElement('br'), timeLine);
+            unlaggedLine.style.backgroundImage = 'none';
+            adjustedLine.style.backgroundImage = 'none';
 
             createAdjustedReplay();
+        }
+    }
 
-            let t_total = total_time;
-            let start_time_ms = start;
+    //DIFFICULTY ON TEXT DETAILS PAGES
+    else if (status.url.startsWith('https://data.typeracer.com/pit/text_info')) {
+        let match = /id=(.*)/.exec(status.url)
+        if (match == null)
+            return;
+        let text_id = match[1];
+        await refreshLatestDifficulty(text_id);
+        let relative_average = status.latestDifficulty;
+        let difficulty = relativeAverageToDifficulty(relative_average);
 
-            // Race context
-            let [race_universe, univ_index] = ["play", 4];
-            if (document.querySelector('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(1)').innerText == "Universe") {
-                race_universe = document.querySelector('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2)').innerText;
-                univ_index++;
+        let difficultyLine = getElementFromString('tr', '<th title="Average difficulty: ' + status.averageDifficulty + '">Difficulty:</th><td>' + difficulty + '</td>');
+        document.querySelector('.avgStatsTable > tbody').appendChild(difficultyLine);
+    }
+
+    // MORE VALUES ON RACE DETAILS PAGE
+    else {
+        status.room = 'race_details';
+
+        // Wait for replay to have loaded
+        await waitFor(() => document.querySelector(".acceptedChars"))
+
+        //Cleaner detail
+        document.querySelector('.raceDetails > tbody > tr:nth-child(2) > td').innerText = "Race";
+
+        // typingLog is declared in page script
+        let log_contents = typingLog.substring(0, typingLog.indexOf('|'))
+        for (let i = 0; i < 3; i++) {
+            log_contents = log_contents.substring(log_contents.indexOf(',') + 1)
+        }
+
+        // log_contents = 'D268o270n161\'240t79 64m113a62k98e79 49a96s143s143u82m223p401t256i80o160n143s65 96-448 303f191i81n159d3 77t98h294e42 46c113o31u146r31a97g128e191 49t128o35 107a49s111k97 128q112u113e78s210t159i64o128n161s79 81a79n111d65 81e240t479o64 128e112x208p97r110e178s159s145 62w80h98a80t111 79y97o31u177 65r64e191a95l98l95y63 80w145a81n88t86.160 96C193o191m161m113u176n158i146c224a94t202e184 79w64i66t93h192 81o576t84h172e176r160s176 80a47s179 94c241l63e127a96r112l464;2y48l672y62 98a207y928 96a208s112 80y175o66u143 48c31a112n65 112t81o94t1026o48 143a80v145o78i145d160 81m127i193s287u207n161d112e113r128s191t177a111n97d110i129n145g95s193,111 239s161a113d807n113e128s175s129 65a63n95d97 63d113r160e241a110a546m62a97.160 208W160i193t94h194 48t127h176i112j1377u160s48t160 63t113h159i64s161 47o96n145e80 47a63g161g145r216e167r1329e143e177m367e111n97t112,897 351y1184o48u159 82c79a79n161 159c225o97m159p207l128e98t110e113l512y111 225t143r337a208n96s127f273o111r112m81 97y79o64u128r65 48l62i146f48e47.96';
+        //     Parsing the log to access partial adjusted speeds
+        log_contents = log_contents.replace(/(\\b.)/g, 'N'); //numbers and dashes
+        log_contents = log_contents.replace(/(\\u....)/g, 'S'); //special characters
+        log_contents = log_contents.replace(/(\\)\D/g, 'E'); //excepted characters
+        log_contents = log_contents.replace(/^./, '');
+        let start = parseInt(/(\d*)?/.exec(log_contents)[1]);
+        let quote_length = 1;
+        let total_time = 0;
+        //     Count non-digits and add up delays
+        let i = 0;
+        let num = '';
+        let partialAdjusteds = [0];
+        let delays = [];
+        let maxAdj = [0, 0]; //maximum partial adjusted speed [index, value]
+        while (log_contents[i]) {
+            num += log_contents[i];
+            if (i == log_contents.length - 1) {
+                total_time += parseInt(num);
+                delays.push(num);
             }
-            let player_name = /.*\((.*)\)$/.exec(document.querySelector('.raceDetails > tbody > tr:nth-child(1) > td:nth-child(2)').innerText)[1];
-            let race_number = document.querySelector('.raceDetails > tbody > tr:nth-child(2) > td:nth-child(2)').innerText;
-            let date_str = document.querySelector('.raceDetails > tbody > tr:nth-child(3) > td:nth-child(2)').innerText;
+            else if (!log_contents[i + 1].match(/\d/i)) {
+                total_time += parseInt(num);
+                delays.push(num);
+                num = '';
+                let partialAdjusted = 12000 * (quote_length - 1) / (total_time - start) || Infinity;
+                partialAdjusteds.push(partialAdjusted);
+                if (partialAdjusted > maxAdj[1] && partialAdjusted != Infinity) {
+                    maxAdj = [quote_length, partialAdjusted];
+                }
+                quote_length++;
+                i = i + 2;
+                continue;
+            }
+            i++;
+        }
 
-            // Race timespan
-            let date_obj = new Date(date_str);
-            let race_unix_num = parseInt((date_obj.getTime() / 1000).toFixed(0));
-            let unix_start = (race_unix_num - 1).toString();
-            let unix_end = (race_unix_num + 1).toString();
+        let unlagged_speed = 12000 * quote_length / total_time;
+        let adjusted_speed = 12000 * (quote_length - 1) / (total_time - start);
+        let desslejusted = 12000 * ((quote_length) / (total_time - start))
+        partialAdjusteds.push(adjusted_speed);
 
-            // Fetch race data from timespan API (exact lagged speed, points)
-            let race_data_url = 'https://data.typeracer.com/games?playerId=tr:' + player_name + '&universe=' + race_universe + '&startDate=' + unix_start + '&endDate=' + unix_end;
-            console.log('2-second-range timespan API url for this race: ' + race_data_url);
-            fetch(race_data_url)
-                .then(response => {
-                    if (response.status !== 200)
-                        return;
-                    response.json().then(async data => {
-                        for (let i = 0; i < data.length; i++) {
-                            if (data[i].gn == race_number) // In case timespan contained multiple races
-                            {
-                                // Display values
-                                let registered_speed = parseFloat(data[i].wpm);
-                                //                     registered_speed = 69.79;
+        console.log('Partial Adjusted speeds: ' + partialAdjusteds);
 
-                                let t_total_lagged = quote_length / registered_speed; // s/12
-                                let ping = Math.round((t_total_lagged - t_total / 12000) * 12000); // ms
+        status.latestPartialAdjusteds = partialAdjusteds;
+        status.delays = delays;
+        status.maximumAdjustedIndex = maxAdj[0];
+        status.maximumAdjustedValue = maxAdj[1].toFixed(3);
 
-                                let reverse_lag_style = '';
-                                if (unlagged_speed < registered_speed)
-                                    reverse_lag_style = ' color:red; font-weight: 1000;';
-                                registered_speed = registered_speed.toFixed(2);
-                                unlagged_speed = unlagged_speed.toFixed(2);
-                                adjusted_speed = adjusted_speed.toFixed(3);
-                                desslejusted = desslejusted.toFixed(2);
+        createAdjustedReplay();
+
+        let t_total = total_time;
+        let start_time_ms = start;
+
+        // Race context
+        let [race_universe, univ_index] = ["play", 4];
+        if (document.querySelector('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(1)').innerText == "Universe") {
+            race_universe = document.querySelector('.raceDetails > tbody > tr:nth-child(4) > td:nth-child(2)').innerText;
+            univ_index++;
+        }
+        let player_name = /.*\((.*)\)$/.exec(document.querySelector('.raceDetails > tbody > tr:nth-child(1) > td:nth-child(2)').innerText)[1];
+        let race_number = document.querySelector('.raceDetails > tbody > tr:nth-child(2) > td:nth-child(2)').innerText;
+        let date_str = document.querySelector('.raceDetails > tbody > tr:nth-child(3) > td:nth-child(2)').innerText;
+
+        // Race timespan
+        let date_obj = new Date(date_str);
+        let race_unix_num = parseInt((date_obj.getTime() / 1000).toFixed(0));
+        let unix_start = (race_unix_num - 1).toString();
+        let unix_end = (race_unix_num + 1).toString();
+
+        // Fetch race data from timespan API (exact lagged speed, points)
+        let race_data_url = 'https://data.typeracer.com/games?playerId=tr:' + player_name + '&universe=' + race_universe + '&startDate=' + unix_start + '&endDate=' + unix_end;
+        console.log('2-second-range timespan API url for this race: ' + race_data_url);
+
+        let response;
+        try {
+            response = await fetch(race_data_url);
+        } catch (err) {
+            console.log("[D.TR-P] error: " + err);
+            return;
+        }
+        if (response.status !== 200)
+            return;
+
+        const data = await response.json();
+        
+        for (let i = 0; i < data.length; i++) {
+            if (data[i].gn == race_number) // In case timespan contained multiple races
+            {
+                // Display values
+                let registered_speed = parseFloat(data[i].wpm);
+                //                     registered_speed = 69.79;
+
+                let t_total_lagged = quote_length / registered_speed; // s/12
+                let ping = Math.round((t_total_lagged - t_total / 12000) * 12000); // ms
+
+                let reverse_lag_style = '';
+                if (unlagged_speed < registered_speed)
+                    reverse_lag_style = ' color:red; font-weight: 1000;';
+                registered_speed = registered_speed.toFixed(2);
+                unlagged_speed = unlagged_speed.toFixed(2);
+                adjusted_speed = adjusted_speed.toFixed(3);
+                desslejusted = desslejusted.toFixed(2);
 
 
-                                let text_id = data[i].tid;
-                                await refreshLatestDifficulty(text_id);
-                                let relative_average = status.latestDifficulty;
-                                //                     console.log("relative average: "+relative_average);
-                                let difficulty = relativeAverageToDifficulty(relative_average);
+                let text_id = data[i].tid;
+                await refreshLatestDifficulty(text_id);
+                let relative_average = status.latestDifficulty;
+                //                     console.log("relative average: "+relative_average);
+                let difficulty = relativeAverageToDifficulty(relative_average);
 
-                                let points = Math.round(data[i].pts);
-                                let ghost_button_html = document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ') > td:nth-child(2) > a').outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
+                let points = Math.round(data[i].pts);
+                let ghost_button_html = document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ') > td:nth-child(2) > a').outerHTML.split('<a').join('<a style="position: absolute;left: 100px;"');
 
-                                let pointsRow = document.createElement("tr");
-                                pointsRow.innerHTML = '<td>Points</td><td>' + points + '</td>';
-                                document.querySelector('.raceDetails > tbody').appendChild(pointsRow);
+                let pointsRow = document.createElement("tr");
+                pointsRow.innerHTML = '<td>Points</td><td>' + points + '</td>';
+                document.querySelector('.raceDetails > tbody').appendChild(pointsRow);
 
-                                let avgDifficultyRow = document.createElement("tr");
-                                avgDifficultyRow.innerHTML = '<td title="Average difficulty: ' + status.averageDifficulty + '">Difficulty</td><td>' + difficulty + '</td>';
-                                document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
-                                let ds_html = '';
-                                if (SHOW_DESSLEJUSTED) {
-                                    ds_html = '<tr><td>Desslejusted</td><td>' + desslejusted + ' WPM</td></tr>';
-                                }
-                                console.log("test")
-                                document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM (ping: ' + ping + 'ms)</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM (start: ' + start_time_ms + 'ms)</td></tr>' + ds_html + '<br>';
-                            }
-                        }
-                    });
-                })
-                .catch(err => {
-                    console.log("[D.TR-P] error: " + err);
-                });
-        }, 100);
-    }, false);
-}
+                let avgDifficultyRow = document.createElement("tr");
+                avgDifficultyRow.innerHTML = '<td title="Average difficulty: ' + status.averageDifficulty + '">Difficulty</td><td>' + difficulty + '</td>';
+                document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
+                let ds_html = '';
+                if (SHOW_DESSLEJUSTED) {
+                    ds_html = '<tr><td>Desslejusted</td><td>' + desslejusted + ' WPM</td></tr>';
+                }
+                document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM (ping: ' + ping + 'ms)</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM (start: ' + start_time_ms + 'ms)</td></tr>' + ds_html + '<br>';
+            }
+        }
+    }
+})();
 
 async function refreshLatestDifficulty(id) {
     // grabbing typeracerdata's relative average value, which may be used as an indicator of its difficulty
