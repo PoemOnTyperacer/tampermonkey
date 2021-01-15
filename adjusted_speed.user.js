@@ -52,9 +52,13 @@ const SHOW_DESSLEJUSTED = false;
 1.4.7 (11-28-20):   November 27 update support
 =================================================================================================================*/
 
+if (window.top != window.self) { // only run in top window, not in Typeracer's iframe
+    return;
+}
+
 var status = {
     url: window.location.href,
-    responsiveTheme: !!document.getElementsByClassName('teachme').length,
+    responsiveTheme: typeof com_typeracer_redesign_Redesign === "function",
     room: 'other',
     race: 'none',
     createdDisplayTag: false,
