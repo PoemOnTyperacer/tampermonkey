@@ -67,7 +67,6 @@ let status = {
     delays: [],
     maximumAdjustedIndex: 0,
     maximumAdjustedValue: 'undefined',
-    replayCursor: -1,
     reverseLag: false,
     waiting: false,
     waitingCounter: 0,
@@ -136,72 +135,56 @@ function sleep(x) { // Wait for x ms
     return new Promise(resolve => setTimeout(resolve, x));
 }
 
-function refreshCursor() {
-    let replayExists = !!document.getElementsByClassName('acceptedChars')[0];
-    if (!replayExists) {
-        status.replayCursor = -1;
-        return;
-    }
-    else {
-        status.replayCursor = document.getElementsByClassName('acceptedChars')[0].innerText.length;
-    }
-}
-setInterval(refreshCursor, 1);
+async function waitFor(awaitable, interval = 50) {
+    let result = awaitable();
 
-function createAdjustedReplay() {
+    while (!result) {
+        await sleep(interval);
+        result = awaitable();
+    }
+
+    return result;
+}
+
+function createAdjustedReplay() { // assumption: replay window exists
     let accuracyTag = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(3) > td > table > tbody > tr > td:nth-child(5)');
     let displayLine = accuracyTag.parentNode;
+
     let displayTagTitle = getElementFromString('td', '<div class="lblStatusIndicator">Adjusted:</div>');
     displayTagTitle.style.textAlign = "left";
     displayTagTitle.style.verticalAlign = "top";
+
     let displayTag = getElementFromString('td', '<div class="statusIndicator" style=""><span class="adjusted" id="adjustedReplayDisplay"></span></div>');
     displayTag.style.textAlign = "left";
     displayTag.style.verticalAlign = "top";
+
     displayLine.insertBefore(displayTagTitle, accuracyTag);
     displayLine.insertBefore(displayTag, accuracyTag);
-    status.displayTag = document.getElementById('adjustedReplayDisplay');
-    status.createdDisplayTag = true;
+
     let buttonsLine = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(4) > td > table > tbody > tr');
+
     let maxAdjButton = getElementFromString('td', '<img src="https://github.com/PoemOnTyperacer/tampermonkey/blob/master/peak_button_2.png?raw=true" style="width: 15px; height: 20px;" border="0" class="ImageButton" title="Go to peak adjusted speed: ' + status.maximumAdjustedValue + '">');
     maxAdjButton.style.position = 'relative';
     maxAdjButton.id = 'maxAdjButton';
+    
     buttonsLine.appendChild(maxAdjButton);
     maxAdjButton.onclick = function () { navigateLogTo(status.maximumAdjustedIndex) };
+
+    const acceptedCharsElem = document.getElementsByClassName('acceptedChars')[0];
+    const observer = new MutationObserver(() => {
+        console.log("Mutation triggered");
+        const replayCursor = acceptedCharsElem.length;
+        const partialAdjusted = status.latestPartialAdjusteds[replayCursor];
+        const resultStr = partialAdjusted.toFixed(2) + ' WPM'
+        const titleStr = partialAdjusted.toFixed(8) + ' WPM';
+        
+        displayTag.innerText = resultStr;
+        displayTag.title = titleStr;
+    });
+    observer.observe(acceptedCharsElem, {characterData: true, childList: true});
 }
 
-function adjustedReplay() {
-    if (((status.room == 'practice' || status.room == 'ghost' || status.room == 'public') && status.race == 'finished') || status.room == 'race_details') {
-        let replayCursor = status.replayCursor;
-        if (status.replayCursor == -1 || !status.createdDisplayTag) {
-            return;
-        }
-
-        let unlaggedTag = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(3) > td > table > tbody > tr > td:nth-child(4) > span');
-        if (!!!unlaggedTag)
-            return;
-
-        let currentUnlagged = (unlaggedTag.innerText || '0 WPM').split(' WPM')[0]
-        let partialAdjusted = status.latestPartialAdjusteds[replayCursor];
-        let resultStr = partialAdjusted.toFixed(2) + ' WPM'
-        let titleStr = partialAdjusted.toFixed(8) + ' WPM';
-
-        if (status.displayTag.innerText != resultStr) {
-            status.displayTag.innerText = resultStr;
-            status.displayTag.title = titleStr;
-        }
-
-    }
-}
-setInterval(adjustedReplay, 1);
-
-function navigateLogTo(index) {
-    let cursor = status.replayCursor;
-    if (cursor == -1) {
-        window.alert("can't navigate (no replay)");
-    }
-    let navigationLine = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(4) > td');
-    navigationLine.style.filter = "brightness(50%)";
-    navigationLine.style.pointerEvents = "none";
+function navigateLogTo(index) { // assumption: replay window exists
     let play = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(4) > td > table > tbody > tr > td:nth-child(1) > img');
     let beginning = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(4) > td > table > tbody > tr > td:nth-child(3) > img');
     let nextFrame = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(7) > td > table > tbody > tr > td:nth-child(2) > img');
@@ -210,16 +193,11 @@ function navigateLogTo(index) {
         play.click();
     beginning.click();
 
-    let increm = 0;
+    const acceptedCharsElem = document.getElementsByClassName('acceptedChars')[0];
     const max_increm = 10000;
-    while (cursor > -1 && cursor != index && increm < max_increm) {
+    for (let increm = 0; acceptedCharsElem.innerText.length != index && increm < max_increm; increm++) {
         nextFrame.click();
-        refreshCursor();
-        cursor = status.replayCursor;
-        increm++;
     }
-    navigationLine.style.pointerEvents = "";
-    navigationLine.style.filter = "brightness(100%)";
 
     if (increm == max_increm) {
         console.log('[log navigator] error : log navigator reached max increment');
@@ -231,19 +209,15 @@ function navigateLogTo(index) {
 // AFTER-RACE ADJUSTED
 
 if (!status.url.startsWith('https://data.typeracer.com/')) {
-    function replaceJs() {
-        if (!XMLHttpRequest.prototype.hasOwnProperty("oldSend")) {
-            XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
 
-            XMLHttpRequest.prototype.send = function(body) {
-                if (body.search("TLv1") != -1) {
-                    let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(body)[1];
-                    //             console.log('caught log: '+typingLog);
-                    window.localStorage.setItem('latestTypingLog', typingLog);
-                }
-                return this.oldSend(body);
-            }
+    XMLHttpRequest.prototype.send = function(body) { // intercept XMLHttpRequests which contain data we need
+        if (body.search("TLv1") != -1) {
+            let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(body)[1];
+            //             console.log('caught log: '+typingLog);
+            window.localStorage.setItem('latestTypingLog', typingLog);
         }
+        return this.oldSend(body);
     }
 
     function logToSpeeds(log_contents) {
@@ -353,7 +327,6 @@ if (!status.url.startsWith('https://data.typeracer.com/')) {
                 status.room = 'other';
                 status.race = 'none';
                 status.createdDisplayTag = false;
-                status.replayCursor = -1;
             }
         }
         if (status.room != 'other') {
@@ -362,9 +335,7 @@ if (!status.url.startsWith('https://data.typeracer.com/')) {
                     status.race = 'waiting';
             }
             else if (gameStatus == 'Go!' || gameStatus.startsWith('The race is on')) {
-                replaceJs();
                 status.createdDisplayTag = false;
-                status.replayCursor = -1;
                 status.reverseLag = false;
                 if (status.race != 'racing')
                     status.race = 'racing';
@@ -411,7 +382,6 @@ if (!status.url.startsWith('https://data.typeracer.com/')) {
         if (status.reverseLag)
             laggedTag.style.color = '#ff0000';
         let adjustedLine = getElementFromString('tr', '<td' + adjustedStyle + '>Adjusted:</td><td><div class="adjustedDisplay tblOwnStatsNumber" style=""><span class="adjusted"' + adjustedStyle + '>' + adjustedResult + '</span></div></td>');
-        let warningLine = getElementFromString('tr', status.latestWarning);
 
         tblOwnStatsBody.insertBefore(document.createElement('br'), timeLine);
         tblOwnStatsBody.insertBefore(unlaggedLine, timeLine);
