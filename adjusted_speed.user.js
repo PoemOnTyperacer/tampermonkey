@@ -54,7 +54,6 @@ const SHOW_DESSLEJUSTED = false;
 
 var status = {
     url: window.location.href,
-    isFirefox: navigator.userAgent.indexOf("Firefox") != -1,
     responsiveTheme: !!document.getElementsByClassName('teachme').length,
     room: 'other',
     race: 'none',
@@ -72,7 +71,7 @@ var status = {
     averageDifficulty: 'undefined'
 }
 
-if (status.responsiveTheme && !status.isFirefox)
+if (status.responsiveTheme)
     GM_addStyle(`
 .mainViewport table.textInfoView>tbody>tr .tblOwnStats tr:nth-child(3) td:nth-child(1),
 .mainViewport table.textInfoView>tbody>tr .tblOwnStats tr:nth-child(4) td:nth-child(1),
