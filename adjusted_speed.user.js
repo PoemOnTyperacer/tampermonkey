@@ -52,15 +52,7 @@ const SHOW_DESSLEJUSTED = false;
 1.4.7 (11-28-20):   November 27 update support
 =================================================================================================================*/
 
-if (window.top != window.self) { // code that runs in the iframe
-    HTMLScriptElement.prototype.oldSA = HTMLScriptElement.prototype.setAttribute;
-
-    HTMLScriptElement.prototype.setAttribute = function(name, value) {
-        if (name === "src" && value.startsWith("https://data.typeracer.com/textstats")) {
-            console.log("Text ID: " + value.match(/textId=(\d+)&/)[1]);
-        }
-        return this.oldSA(name, value);
-    }
+if (window.top != window.self) { // skip IFrame stuff
     return;
 }
 
@@ -215,12 +207,24 @@ function navigateLogTo(index) { // assumption: replay window exists
         XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
 
         XMLHttpRequest.prototype.send = function (body) { // intercept XMLHttpRequests which contain data we need
-            if (body.search("TLv1") != -1) {
+            if (body && body.search("TLv1") != -1) {
                 let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(body)[1];
                 //             console.log('caught log: '+typingLog);
                 window.localStorage.setItem('latestTypingLog', typingLog);
             }
             return this.oldSend(body);
+        }
+
+        const iFrame = await waitFor(() => (document.getElementById("com.typeracer.redesign.Redesign") || document.getElementById("com.typeracer.guest.Guest")));
+        
+        iFrame.contentWindow.HTMLScriptElement.prototype.oldSA = iFrame.contentWindow.HTMLScriptElement.prototype.setAttribute;
+
+        iFrame.contentWindow.HTMLScriptElement.prototype.setAttribute = function(name, value) {
+            console.log(`HTMLScriptElement#setAttribute("${name}", "${value}");`);
+            if (name === "src" && value.startsWith("https://data.typeracer.com/textstats")) {
+                console.log("Text ID: " + value.match(/textId=(\d+)&/)[1]);
+            }
+            return this.oldSA(name, value);
         }
 
         // XMLHttpRequest.prototype.oldOpen = XMLHttpRequest.prototype.open;
