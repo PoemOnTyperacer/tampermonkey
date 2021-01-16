@@ -118,6 +118,21 @@ String.prototype.removeAt = function (indices) {
     }
 }
 
+String.prototype.substringAfterNth = function (needle, n) {
+    let counter = 0;
+    let index = 0;
+    for (let i = 0; i < this.length; i++) {
+        if (this[i] === needle) {
+            counter++;
+            if (counter === n) {
+                index = i + 1;
+                break;
+            }
+        }
+    }
+    return this.substring(index);
+}
+
 function getElementFromString(tag, string) {
     let element = document.createElement(tag);
     element.innerHTML = string;
@@ -166,7 +181,6 @@ function createAdjustedReplay() { // assumption: replay window exists
     const adjustedReplayDisplay = document.getElementById("adjustedReplayDisplay");
     const acceptedCharsElem = document.getElementsByClassName('acceptedChars')[0];
     const observer = new MutationObserver(() => {
-        console.log("Mutation triggered");
         const replayCursor = acceptedCharsElem.innerText.length;
         const partialAdjusted = status.latestPartialAdjusteds[replayCursor];
         const resultStr = partialAdjusted.toFixed(2) + ' WPM'
@@ -207,24 +221,22 @@ function navigateLogTo(index) { // assumption: replay window exists
         XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
 
         XMLHttpRequest.prototype.send = function (body) { // intercept XMLHttpRequests which contain data we need
-            if (body && body.search("TLv1") != -1) {
-                let typingLog = /^.*?,.*?,.*?,(.*?)\\!/.exec(body)[1];
-                //             console.log('caught log: '+typingLog);
-                window.localStorage.setItem('latestTypingLog', typingLog);
+            if (body) {
+                const splitBody = body.split("|");
+                const endpoint = splitBody[6];
+                const payload = splitBody[13];
+                if (endpoint === "updatePlayerProgress" && payload.startsWith("TLv1")) {
+                    let typingLog = payload.substring(0, payload.indexOf("\\!")).substringAfterNth(",", 3);
+                    //             console.log('caught log: '+typingLog);
+                    window.localStorage.setItem('latestTypingLog', typingLog);
+                } else if (endpoint === "joinStandaloneGame") {
+                    this.addEventListener("load", function() {
+                        const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
+                        console.log("Text ID: " + responseJSON[12]);
+                    });
+                }
             }
             return this.oldSend(body);
-        }
-
-        const iFrame = await waitFor(() => (document.getElementById("com.typeracer.redesign.Redesign") || document.getElementById("com.typeracer.guest.Guest")));
-        
-        iFrame.contentWindow.HTMLScriptElement.prototype.oldSA = iFrame.contentWindow.HTMLScriptElement.prototype.setAttribute;
-
-        iFrame.contentWindow.HTMLScriptElement.prototype.setAttribute = function(name, value) {
-            console.log(`HTMLScriptElement#setAttribute("${name}", "${value}");`);
-            if (name === "src" && value.startsWith("https://data.typeracer.com/textstats")) {
-                console.log("Text ID: " + value.match(/textId=(\d+)&/)[1]);
-            }
-            return this.oldSA(name, value);
         }
 
         // XMLHttpRequest.prototype.oldOpen = XMLHttpRequest.prototype.open;
@@ -433,9 +445,7 @@ function navigateLogTo(index) { // assumption: replay window exists
 
         // typingLog is declared in page script
         let log_contents = typingLog.substring(0, typingLog.indexOf('|'))
-        for (let i = 0; i < 3; i++) {
-            log_contents = log_contents.substring(log_contents.indexOf(',') + 1)
-        }
+        log_contents = log_contents.substringAfterNth(',', 3);
 
         // log_contents = 'D268o270n161\'240t79 64m113a62k98e79 49a96s143s143u82m223p401t256i80o160n143s65 96-448 303f191i81n159d3 77t98h294e42 46c113o31u146r31a97g128e191 49t128o35 107a49s111k97 128q112u113e78s210t159i64o128n161s79 81a79n111d65 81e240t479o64 128e112x208p97r110e178s159s145 62w80h98a80t111 79y97o31u177 65r64e191a95l98l95y63 80w145a81n88t86.160 96C193o191m161m113u176n158i146c224a94t202e184 79w64i66t93h192 81o576t84h172e176r160s176 80a47s179 94c241l63e127a96r112l464;2y48l672y62 98a207y928 96a208s112 80y175o66u143 48c31a112n65 112t81o94t1026o48 143a80v145o78i145d160 81m127i193s287u207n161d112e113r128s191t177a111n97d110i129n145g95s193,111 239s161a113d807n113e128s175s129 65a63n95d97 63d113r160e241a110a546m62a97.160 208W160i193t94h194 48t127h176i112j1377u160s48t160 63t113h159i64s161 47o96n145e80 47a63g161g145r216e167r1329e143e177m367e111n97t112,897 351y1184o48u159 82c79a79n161 159c225o97m159p207l128e98t110e113l512y111 225t143r337a208n96s127f273o111r112m81 97y79o64u128r65 48l62i146f48e47.96';
         //     Parsing the log to access partial adjusted speeds
