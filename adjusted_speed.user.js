@@ -239,13 +239,6 @@ function navigateLogTo(index) { // assumption: replay window exists
             return this.oldSend(body);
         }
 
-        // XMLHttpRequest.prototype.oldOpen = XMLHttpRequest.prototype.open;
-
-        // XMLHttpRequest.prototype.open = function (method, url) {
-        //     console.info(`XMLHttpRequest#open("${method}", "${url}");`)
-        //     return this.oldOpen(method, url);
-        // }
-
         function logToSpeeds(log_contents) {
             let x = 0;
             while (x < log_contents.length) {
