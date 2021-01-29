@@ -2,8 +2,8 @@
 // @name         Typeracer: Unlagged scores window
 // @namespace    http://tampermonkey.net/
 // @version      0.4.0
-// @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
-// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/officiator.js
+// @updateURL    https://github.com/PoemOnTyperacer/tampermonkey/raw/master/unlagged_scores.user.js
+// @downloadURL  https://github.com/PoemOnTyperacer/tampermonkey/raw/master/unlagged_scores.user.js
 // @description  Show competitors' latest unlagged scores in a floating window.
 // @author       poem
 // @match        https://play.typeracer.com/*
