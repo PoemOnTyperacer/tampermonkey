@@ -1,28 +1,21 @@
 // ==UserScript==
 // @name         Flagging Page Enhancer
 // @namespace    http://tampermonkey.net/
-// @version      0.5
-// @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/dqcolumn.js
-// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/dqcolumn.js
+// @version      0.6
 // @description  Adds a 'disqualified status' column, and translates IPs into locations
 // @author       mako640, poem
 // @include      https://data.typeracer.com/pit/admin/flagging*
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addStyle
 // @connect      data.typeracer.com
 // @connect      api.ipstack.com
 // ==/UserScript==
 
-
-/*====================CHANGELOG===================
-0.3               initial release
-0.4 (11-20-2020)  Responsive theme update support
-0.5 (11-28-2020)  Auto updates support
-=================================================*/
-
-
                         /*GENERAL SETUP*/
 'use strict';
 const debugging = true;
+const dark_mode = false;
+
 function log(msg) {
     if(debugging)
         console.log(msg);
@@ -38,15 +31,6 @@ for (const h of document.querySelectorAll('h2')) {
         break;
     }
 }
-// Remove left margin for less lateral scrolling
-document.getElementsByClassName('main')[0].style.paddingLeft="50px";
-document.getElementsByClassName('themeContent')[0].style.marginLeft = 0;
-function getRandomInt(max) {
-  return Math.floor(Math.random() * Math.floor(max));
-}
-
-
-
 
                         /*IP TRANSLATING -- from number to location*/
 const IPSTACK_KEYS = ['340914b1f7d8f09ac1c8afb3b85b1296','e69b7a06da6b832c8c5531a41d97c3f0','82be81745db918b21101420f916a63fd','6483b119604f359c7b74e656f150dcf0','08fcba4b7f470c012661700dd8353de7','95ae51c9e79df253c3578095d7056293','6bdf4fb726c60c056a886ed8533f1ba3','e1697ff185733680396c409b8271bea7'];
@@ -90,6 +74,9 @@ async function cooldownTick() {
         cooldown--;
 }
 setInterval(cooldownTick,100);
+
+var knownUsernames=[];
+var toBeModified = [];
 
 async function selectKey() { //looks for a valid key. If it doesn't find one, selects -1 and sets is_key_selected to True.
 //     log('selectkey iteration: is_key_selected='+is_key_selected);
@@ -345,7 +332,7 @@ function insertDisqualifiedStatus(resultRow, status) {
     dqColumn.innerHTML = status;
 }
 
-function main() {
+async function main() {
     // find the results table
     let resultsTableSelector = "table.cellTable:not(.queryTable)";
     let resultsTableList = document.querySelectorAll(resultsTableSelector);
@@ -376,7 +363,30 @@ function main() {
         modifyIpCell(latest_translation++,resultsTableRows,i);
         modifyIpCell(latest_translation++,resultsTableRows,i,true);
         createDisqualifiedStatusCell(resultRow);
-        modifyResultRow(resultRow, username);
+        toBeModified.push([resultRow, username]);
+
+    }
+    await sleep(2500); //rates
+
+    let userData;
+    let i=0;
+    while (userData = toBeModified[i]) {
+        i++;
+        let rrow = userData[0];
+        let uname = userData[1];
+        modifyResultRow(rrow, uname);
+        let rateBreak=true;
+        for (let i=0; i<knownUsernames.length; i++) {
+            if(uname==knownUsernames[i][0]) {
+                log('already collected information for user '+uname);
+                insertDisqualifiedStatus(rrow, knownUsernames[i][1]);
+            rateBreak=false;
+            }
+        }
+        if(uname==null)
+            rateBreak=false;
+        if(rateBreak)
+            await sleep(2500);
     }
 }
 
@@ -404,6 +414,12 @@ async function modifyResultRow(resultRow, username) {
     }
     let statuses=users_data[key];
 
+    if(statuses=='Error 429') {
+        insertDisqualifiedStatus(resultRow, 'Rate limits reached.\nReloading...');
+        toBeModified.push([resultRow, username])
+        return;
+    }
+
     // format the data
     let dqs = 0;
     let nondqs = 0;
@@ -426,6 +442,7 @@ async function modifyResultRow(resultRow, username) {
     else formatted_status='false';
 
     //insert the formatted data
+    knownUsernames.push([username,formatted_status]);
     insertDisqualifiedStatus(resultRow, formatted_status);
 }
 
@@ -445,6 +462,10 @@ function getUserUniverseStatuses(username, key)
 // Extract the universes list from the user's history page html, then for each of those check their disqualified status
 function getUniverseStatusesFromHTML(username, html, key)
 {
+    if(html==undefined) {
+        users_data[key]= 'Error 429';
+        return;
+    }
     let universes = [];
     let options = html.split('select name="universe"');
     if(options.length==1)
@@ -499,4 +520,448 @@ function getUniverseStatusesFromHTML(username, html, key)
 if(IPSTACK_KEYS[0]!='off') {
     selectKey();
 }
+
+function addGlobalStyle(css) {
+    var head, style;
+    head = document.getElementsByTagName('head')[0];
+    if (!head) { return; }
+    style = document.createElement('style');
+    style.type = 'text/css';
+    style.innerHTML = css;
+    head.appendChild(style);
+}
+
+const flaggings_dark_style = `/* ubuntu-mono-regular - greek-ext_latin_greek_latin-ext_cyrillic_cyrillic-ext */
+    @font-face {
+        font-family: 'Ubuntu Mono';
+        font-style: normal;
+        font-weight: 400;
+        src: url('../fonts/ubuntu-mono-v8-greek-ext_latin_greek_latin-ext_cyrillic_cyrillic-ext-regular.eot');
+        /* IE9 Compat Modes */
+        src: local('Ubuntu Mono'), local('UbuntuMono-Regular'),
+        url('../fonts/ubuntu-mono-v8-greek-ext_latin_greek_latin-ext_cyrillic_cyrillic-ext-regular.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+        url('../fonts/ubuntu-mono-v8-greek-ext_latin_greek_latin-ext_cyrillic_cyrillic-ext-regular.woff2') format('woff2'), /* Super Modern Browsers */
+        url('../fonts/ubuntu-mono-v8-greek-ext_latin_greek_latin-ext_cyrillic_cyrillic-ext-regular.woff') format('woff'), /* Modern Browsers */
+        url('../fonts/ubuntu-mono-v8-greek-ext_latin_greek_latin-ext_cyrillic_cyrillic-ext-regular.ttf') format('truetype'), /* Safari, Android, iOS */
+        url('../fonts/ubuntu-mono-v8-greek-ext_latin_greek_latin-ext_cyrillic_cyrillic-ext-regular.svg#UbuntuMono') format('svg');
+        /* Legacy iOS */
+    }
+
+
+    /*PERSONAL ADDITIONS*/
+
+
+body > div.ie-fixMinHeight > div > div.container > div.main > div.themeContent.pit > div {
+ background:#111 !important;
+    width:100% !important;
+}
+
+    /*readable odd table row background*/
+    tr.odd {
+        background: #111;
+    }
+
+    /*dark background on over-large Flaggings Table*/
+    body {
+        background:#111111;
+    }
+
+    /*remove footer in admin console*/
+    .footer {
+        display:none;
+    }
+
+    /*Smooth car movement*/
+    .scoreboard .row .progressBar {
+        transition: linear 2s;
+    }
+
+    /*Remove IDM popup*/
+    .InstaGibPopup {
+        display:none;
+    }
+
+    /*Push user info box to the right*/
+    .userInfo {
+        margin-right:-110px;
+    }
+
+    /*Hide side widgets and center game ui*/
+    .main .themeContent .view .newEastWidget,.main .themeContent .view .newWestWidget, .main .themeContent .view .newSouthWidget {
+        display:none;
+    }
+   .main .themeContent .view>tbody>tr:nth-child(1)>td:nth-child(1) .newNorthWidget {
+       display: none;
+    }
+    #dUI > table > tbody > tr:nth-child(2) > td:nth-child(3) {
+        display:none;
+    }
+
+    /*Remove white patches and overlapping widgest from Race Details pages*/
+    .main table.TypingLogReplayPlayer>tbody>tr:nth-child(1)>td, .main table.TypingLogReplayPlayer>tbody>tr:nth-child(2)>td, .main table.TypingLogReplayPlayer>tbody>tr:nth-child(3)>td, .main table.TypingLogReplayPlayer>tbody>tr:nth-child(4)>td, .main table.TypingLogReplayPlayer>tbody>tr:nth-child(5)>td, .main table.TypingLogReplayPlayer>tbody>tr:nth-child(6)>td, .main table.TypingLogReplayPlayer>tbody>tr:nth-child(7)>td, .main table.TypingLogReplayPlayer>tbody>tr:nth-child(9)>td,.main table.TypingLogReplayPlayer>tbody>tr:nth-child(4) table tbody tr {
+        background:#333333;
+    border: none;
+    }
+        .themeContent.pit .fullTextStr {
+        background-color: #888;
+    }
+    .main table.TypingLogReplayPlayer>tbody>tr:nth-child(8)>td {
+        background-color: #333333;
+    }
+    .container .main .eastWidget {
+        z-index:-1;
+    }
+    .container .main .northWidget, .container .main .westWidget, .container .main .southWidget{
+        z-index:-1;
+    }
+
+
+    /*OFFICIAL CODE*/
+    .main, .container {
+        background: #111;
+    }
+
+    body, html {
+        color: #eee !important;
+    }
+
+    h1, h2, h3, h4, h5, li, a, .gameStatusLabel, .scoreboard, .row, .progressBar, .avatar, .lblName, .lblUsername, .rank {
+        color: #eee;
+    }
+    .themeHeader#themeHeader {
+        background: #222;
+    }
+    #tr_textHeader {
+        color: #eee !important;
+    }
+
+    .mainMenu .enterRace {
+        background-color: #333;
+        background-image: url("https://github.com/Lachney/TypeRacer-Responsive-Dark-Theme/blob/master/assets/night.png?raw=true") !important;
+        background-size: cover;
+        border: #333 1px solid;
+        border-radius: 8px;
+    }
+
+
+    .bkgnd-yellow, .bkgnd-blue, .bkgnd-purple, .bkgnd-green {
+        transition: all 175ms;
+    }
+    .enterRace h2, h3 {
+        color: #eee !important;
+    }
+    .mainMenu .practice {
+        background-image: none;
+        background-color: #222;
+        color: #eee !important;
+        border-color: #333;
+    }
+    .mainMenu .friends {
+        background-image: none;
+        background-color: #222;
+        color: #eee !important;
+        border-color: #333;
+    }
+    .statsView {
+        background-image: none;
+        background-color: #222;
+        color: #eee !important;
+        background-size: cover;
+        border: #333 1px solid;
+        border-radius: 8px;
+    }
+    .StatsTable table tr.headerRow td, .section--boxed {
+        background-color: #333 !important;
+        border: 1px solid #333;
+    }
+
+    table.themeHeader table.mainUserInfoBox > tbody > tr > td {
+        border-color: #333;
+    }
+
+    table.themeHeader table.mainUserInfoBox > tbody > tr:first-child {
+        background-color: #444;
+        border-color: #333;
+    }
+
+    table.themeHeader table.mainUserInfoBox > tbody > tr.datarow {
+        border-color: #333;
+        background-color: #333
+    }
+
+    table.themeHeader table.mainUserInfoBox {
+        border: none;
+    }
+
+    .OptionsWidget .OptionsWidgetBody li:nth-child(2) .gwt-Anchor.off {
+        background: #111;
+        border-color: #333;
+    }
+
+    #tstats > table > tbody > tr > td {
+        color: #eee !important;
+    }
+
+    .mobileNav {
+        background: #222;
+        color: #eee;
+    }
+    .mobileNav a {
+        color: #eee;
+    }
+    .mobileNav a:hover {
+        color: #eee;
+        background: #333;
+    }
+    .mobileMenu li + li {
+        border-top: #555 1px solid
+    }
+
+    #tr_textHeader {
+        margin: 0 auto;
+        text-align: center !important;
+        padding-bottom: 20px
+    }
+
+    table.themeHeader {
+        background: #111;
+        position: relative;
+    }
+
+    #school-edition-promo {
+        background-image: none;
+        background-color: #222;
+        color: #eee !important;
+        background-size: cover;
+        border: #333 1px solid;
+        border-radius: 8px;
+        max-width: 1200px !important;
+    }
+    #school-edition-promo ul li {
+        background-image: url("https://github.com/Lachney/TypeRacer-Responsive-Dark-Theme/blob/master/assets/arrow.png?raw=true");
+        background-position: 0px 7px;
+    }
+    .StatsTable table tr td {
+        background: #222 !important;
+        color: #eee;
+        border: 1px solid #333;
+    }
+    .horizontalCountdownPopup .lightLabel .countdownPopup {
+        background-color: #222 !important;
+    }
+    table.inputPanel div {
+        font-family: 'Ubuntu Mono', monospace;
+        font-size: 1.15em;
+    }
+    .mainViewport table.inputPanel {
+        border: none;
+    }
+    .mainViewport table.scoreboard > tbody > tr table tr td:nth-child(2) .rankPanelWpm {
+        color: #eee !important;
+    }
+    .chrome_1, .chrome_m, .chrome_r, .mainViewport, table.inputPanel, .roomSection, .messagesPanel, .users-list, .AdvancedTextBox, .txtChatMsgInput, .AdvancedTextBox-unfocused {
+        background-color: #111 !important;
+        border-radius: 4px;
+        padding: 10px;
+    }
+
+    .messagesPanel, .users-list, .AdvancedTextBox, .txtChatMsgInput, .AdvancedTextBox-unfocused {
+        border: 1px solid #333 !important;
+    }
+    #dUI > table > tbody > tr > td:nth-child(1) > div > div.mainViewport > table > tbody > tr:nth-child(4) > td > div {
+        border: none;
+    }
+    .txtInput {
+        background-color: #222 !important;
+        color: #eee !important;
+    }
+    table > tbody > tr:nth-child(4) > td > div > table > tbody > tr:nth-child(2) > td > table > tbody > tr > td:nth-child(1) {
+        width: 200px !important;
+    }
+    table > tbody > tr:nth-child(4) > td > div > table > tbody > tr:nth-child(2) > td > table > tbody > tr > td:nth-child(1) > div img {
+        width: 100%;
+    }
+    .popupContent, .DialogBox, .PlayerInfoPopup, .trPopupDialog, .gwt-MenuBar, .textInfoHeader, .mainViewport table.textInfoView > tbody > tr:nth-child(3) td {
+        background-color: #222 !important;
+        color: #eee !important;
+        transition: all 75ms;
+    }
+    .textInfoHeader, .mainViewport table.textInfoView {
+        border: 1px solid #333;
+    }
+    .gwt-MenuItem:hover {
+        background-color: #444 !important;
+        transition: all 75ms;
+    }
+    .DialogBox.trPopupDialog {
+        -webkit-box-shadow: 1px 2px 7px #eee;
+        box-shadow: 1px 2px 7px #eee;
+    }
+    .AdContainer, .AdContainer-728x90 {
+        background-color: #222 !important;
+        color: #eee !important;
+        border: none !important;
+    }
+
+    .OptionsWidget, .eastWidget {
+        background-color: #222 !important;
+        color: #eee !important;
+        border: none !important;
+    }
+
+    .gwt-InlineLabel {
+        color: #eee !important;
+    }
+
+    .DialogBox.trPopupDialog .gwt-DisclosurePanel.gwt-DisclosurePanel-open, .gwt-DisclosurePanel, .gwt-DisclosurePanel-closed {
+        background-color: #222 !important;
+        color: #eee !important;
+        border: 1px solid #333;
+    }
+
+    .sidebarBlocks-controls p {
+        color: #eee;
+    }
+
+    .sidebarBlocks, .mainViewportHolder .sidebarBlocks iframe {
+        background-color: #111;
+        border-color: #333;
+    }
+    .sidebarBlock show, .sidebarBlock__content, .sidebarBlocks-prev, .sidebarBlocks-next {
+        background: #222 !important;
+        border-color: #333;
+    }
+
+    .sidebarBlock__subtext {
+        background: #333 !important;
+    }
+
+    .statsView .tab-bar-select select {
+        background: #222 !important;
+        border-color: #333;
+    }
+
+    .mainViewport table.navControls tr td:nth-child(1) a.gwt-Anchor, .mainViewport table.navControls tr td:nth-child(2) .raceAgainLink, .statsView .highScoresView .highScoresFooter .lnkRefresh, .footer-cont .footer-wrapper .footer-east .change-theme-button {
+        background-color: #FF5722;
+    }
+
+    .mainViewport table.navControls tr td:nth-child(2) .raceAgainLink:hover {
+        background-color: #EBC100;
+    }
+
+    .headerSubmenu {
+        background-color: #333;
+    }
+
+    #footer {
+        background: #222;
+    }
+
+    /* Handle */
+    /* width */
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    /* Track */
+    ::-webkit-scrollbar-track {
+        background: #222;
+    }
+
+    /* Handle */
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+    }
+
+    /* Handle on hover */
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    .mainViewport table.textInfoView > tbody > tr:nth-child(1) > td, .mainViewport table.textInfoView > tbody > tr:nth-child(2) > td, .mainViewport table.textInfoView > tbody > tr .tblOwnStats, .mainViewport table.textInfoView > tbody > tr .tblOwnStats, .mainViewport table.textInfoView > tbody > tr > td .textInfoAuthor, .mainViewport table.textInfoView > tbody > tr > td .textInfoContributor, .mainViewport table.textInfoView > tbody > tr > td .textInfoTitle {
+        background-color: #222;
+        border-color: #333;
+    }
+
+    .mainViewport table.textInfoView > tbody > tr .tblOwnStats .ScoreMenuButton > tbody > tr {
+        background-color: #ff5722
+    }
+
+    .mainViewport div.TypingDisplaySection, .mainViewport table.TypingLogReplayPlayer > tbody > tr *, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(8) > td {
+        background-color: #222;
+        border-color: #333;
+    }
+
+    .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(1) > td, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(2) > td, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(3) > td, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(4) > td, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(5) > td, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(6) > td, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(7) > td, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(9) > td, .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(4) table tbody tr, .UserGameResultsView .GameResultsChartView > tbody > tr:nth-child(1) > td > div > div > div > div:nth-child(1), .sidebarBlocks iframe {
+        background-color: #222;
+        border-color: #333;
+    }
+
+    .mainViewport .IncrementSpeedChart > div > div > div:nth-child(1) svg {
+        filter: invert(1);
+        border-radius: 8px;
+    }
+
+    .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(4) table tbody tr img, table > tbody > tr > td > div > table > tbody > tr > td > table > tbody > tr > td > table > tbody > tr > td > img {
+        filter: invert(1);
+    }
+
+    .mainViewport table.TypingLogReplayPlayer > tbody > tr:nth-child(3) .lblStatusIndicator, .AnimationSpeedSelector {
+        color: #eee;
+    }
+
+    .themeContent.login .loginform input[type="text"], .themeContent.login .loginform input[type="password"], .themeContent.pit form input[type="text"], .themeContent.login .loginform select, .themeContent.pit form select, .scorecardTable textarea, .messageTable, .messagesList li {
+        background-color: #222;
+        border-color: #333;
+        color: #eee;
+    }
+
+    .scoresTable tr th, .friendsTable tr th {
+        background-color: #555;
+        border-color: #333;
+        color: #eee;
+    }
+    .scoresTable tr td, .friendsTable tr td {
+        background-color: #222;
+        border-color: #333;
+        color: #eee;
+    }
+    .scoresTable tr td:nth-child(1), .friendsTable tr td:nth-child(1) {
+        background-color: #444;
+        border-color: #333;
+        color: #eee;
+    }
+
+    .bkgnd-blue {
+        background-color: #ff5722 !important;
+    }
+
+    .headerSubmenu {
+        filter: grayscale(1)
+    }
+
+    .ElapsedTimeLabel {
+        color: #e0a87a !important;
+    }
+
+    /* Redesign Theme Fixes Only */
+    /* Little more padding for leaderboard */
+    .StatsTable table tr td:nth-child(1) {
+        padding: 0.1em;
+    }
+    /*   Flag Fixes - Competitions   */
+    .scoresTable tr td:nth-child(2) > div, .friendsTable tr td:nth-child(2) > div, .cellTable:not(.queryTable) tr td:nth-child(2) > div {
+        display: inline-block;
+        margin-left: 5px;
+    }
+    /*   Rounded Profile Pictures - Friends   */
+    .userProfilePicLink img {
+        border-radius: 64px;
+    }
+    /*  Wider Profiles    */
+    body > div.ie-fixMinHeight > div > div.container > div.main > div.themeContent.pit > div {
+        width: 130%;
+    }`;
+if(dark_mode)
+    addGlobalStyle(flaggings_dark_style);
 main();
