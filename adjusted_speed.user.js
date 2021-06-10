@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.5.2
+// @version      1.5.3
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
 // @author       poem & ph0t0shop
@@ -534,6 +534,19 @@ function navigateLogTo(index) { // assumption: replay window exists
 
 
             let accuracyTag = document.getElementsByClassName('tblOwnStatsNumber')[2];
+            
+            let loadTick=0;
+            while(accuracyTag==undefined&&loadTick<30) {
+                await sleep(200);
+                loadTick++;
+                console.log("showPracticeRaceData: waited for accuracy tag for 1 tick");
+                accuracyTag = document.getElementsByClassName('tblOwnStatsNumber')[2];
+            }
+            if(loadTick==30){
+                console.log("showPracticeRaceData error: accuracy tag timed out");
+                return;
+            }
+            
             let displayed_accuracy = parseFloat(accuracyTag.innerHTML.slice(0,-1));
             let rounded_accuracy = Math.round(accuracy*1000)/10;
             if(displayed_accuracy!=rounded_accuracy) {
