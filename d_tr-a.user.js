@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Awards Organizer
 // @namespace    http://tampermonkey.net/
-// @version      1.4.2
+// @version      1.4.3
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/d_tr-a.js
 // @description  Data.TypeRacer profiles: regroup Awards
