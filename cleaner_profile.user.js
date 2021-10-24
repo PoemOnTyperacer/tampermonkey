@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: cleaner profile pages
 // @namespace    http://tampermonkey.net/
-// @version      1.5.0
+// @version      1.5.1
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/cleaner_profile.user.js
 // @description  Various improvements on Typeracer profile pages
 // @author       poem
@@ -492,9 +492,6 @@ let sections = document.getElementsByClassName('section')
 
 //Remove "Your portable scorecard" section
 sections[2].remove();
-
-//Please, at least
-sections[0].style.overflow="hidden";
 
 //Make "Per-universe Stats" collapsible
 let isExpanded = true;
