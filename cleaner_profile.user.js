@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: cleaner profile pages
 // @namespace    http://tampermonkey.net/
-// @version      1.5.1
+// @version      1.5.2
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/cleaner_profile.user.js
 // @description  Various improvements on Typeracer profile pages
 // @author       poem
@@ -21,10 +21,76 @@
 1.5.0 (10-24-21):   auto-update support probably
                     removed "your portable scorecard" section
                     made "Per-universe stats" section collapsible
+1.5.2 (10-24-21):   bug fixes
 ==========================================================================================*/
 
 
 'use strict';
+
+
+                //PAGE TWEAKS//
+let sections = document.getElementsByClassName('section')
+
+//Remove "Your portable scorecard" section if it exists
+let potentialScorecardSection = sections[1];
+let potentialUniverseSection = sections[1]
+
+if(potentialScorecardSection.firstElementChild.innerHTML=="Your Portable Scorecard") {
+    potentialScorecardSection.remove();
+
+
+//Make "Per-universe Stats" collapsible if it exists
+
+    potentialUniverseSection = sections[1]
+}
+
+if(potentialUniverseSection.firstElementChild.innerHTML=="Per-Universe Stats") {
+    let isExpanded = true;
+
+    let newHeader = document.createElement('table');
+    newHeader.innerHTML = `<tbody><tr>
+<td><h3>Per-Universe Stats</h3></td>
+<td><a id="toggleLink">eek</a><td>
+</tr></tbody>`;
+    newHeader.style.width="100%";
+
+    let table = document.querySelector('.scoresTable');
+    let section = table.closest('div');
+    let oldHeader = section.firstElementChild;
+    let newTable;
+
+    oldHeader.remove();
+    section.insertBefore(newHeader,table);
+    let toggleLink = document.getElementById('toggleLink');
+
+    function toggleTable() {
+        if(isExpanded) {
+            let currentTable = document.querySelector('.scoresTable');
+            newTable = currentTable.cloneNode(true);
+            currentTable.remove();
+            section.style.paddingBottom="0px";
+
+            toggleLink.innerHTML = 'Show';
+            isExpanded=false;
+        }
+        else {
+            section.appendChild(newTable);
+            section.style.paddingBottom="32px";
+
+            toggleLink.innerHTML = 'Hide';
+            isExpanded=true;
+        }
+    }
+
+    toggleTable();
+    toggleLink.onclick = toggleTable;
+
+}
+
+
+
+
+                //BETTER MEDALS SECTION//
 
 function kRows(k)
 {
@@ -483,53 +549,3 @@ function closeOpenMenus()
         }
     }
 }
-
-
-                //OTHER PAGE TWEAKS//
-
-
-let sections = document.getElementsByClassName('section')
-
-//Remove "Your portable scorecard" section
-sections[2].remove();
-
-//Make "Per-universe Stats" collapsible
-let isExpanded = true;
-
-let newHeader = document.createElement('table');
-newHeader.innerHTML = `<tbody><tr>
-<td><h3>Per-Universe Stats</h3></td>
-<td><a id="toggleLink">eek</a><td>
-</tr></tbody>`;
-newHeader.style.width="100%";
-
-let table = document.querySelector('.scoresTable');
-let section = table.closest('div');
-let oldHeader = section.firstElementChild;
-let newTable;
-
-oldHeader.remove();
-section.insertBefore(newHeader,table);
-let toggleLink = document.getElementById('toggleLink');
-
-function toggleTable() {
-    if(isExpanded) {
-        let currentTable = document.querySelector('.scoresTable');
-        newTable = currentTable.cloneNode(true);
-        currentTable.remove();
-        section.style.paddingBottom="0px";
-
-        toggleLink.innerHTML = 'Show';
-        isExpanded=false;
-    }
-    else {
-        section.appendChild(newTable);
-        section.style.paddingBottom="32px";
-
-        toggleLink.innerHTML = 'Hide';
-        isExpanded=true;
-    }
-}
-
-toggleTable();
-toggleLink.onclick = toggleTable;
