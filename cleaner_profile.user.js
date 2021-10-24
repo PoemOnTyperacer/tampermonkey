@@ -2,7 +2,7 @@
 // @name         Typeracer: cleaner profile pages
 // @namespace    http://tampermonkey.net/
 // @version      1.5.0
-// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
+// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/cleaner_profile.user.js
 // @description  Various improvements on Typeracer profile pages
 // @author       poem
 // @match        https://data.typeracer.com/pit/profile*
