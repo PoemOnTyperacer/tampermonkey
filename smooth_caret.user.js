@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Smooth Caret
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.3
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @description  Customizable, smooth caret for TypeRacer
@@ -13,14 +13,16 @@
 
 
 const defaultSettings = {
-    caretColor: "255, 124, 28",
+    caretColor: "153,204,0", //"255, 124, 28" previously
     caretReactivity: 0.07,
     caretThickness: 0.3,
     blinkDuration: 1,
     maxOpacity: 1,
     minOpacity: 0.5,
     caretType: 0,
-    hideInputField: false
+    hideInputField: false,
+    debugMode: false,
+    highlighting: true
 }
 
 //--------------- SETTINGS----------------------//
@@ -32,12 +34,15 @@ let maxOpacity = defaultSettings.maxOpacity;
 let minOpacity = defaultSettings.minOpacity;
 let caretType=defaultSettings.caretType;
 let hideInputField =defaultSettings.hideInputField;
+let debugMode=defaultSettings.debugMode;
+let highlighting=defaultSettings.highlighting;
 //---------------------------------------------//
 
 
 
 /*GLOBAL*/
-const settingsItem="smoothCaretSettingsv0-1-1";
+const offset = 0;
+const settingsItem="smoothCaretSettingsv0-1-3";
 const separator='|';
 const welcomeMessage='Click the gear wheel in the top right to customize the appearance and animation of the caret. This is an unofficial extension: if you notice any glitch after installing, disable it. Feel free to report any bugs in DMs @poem#3305. Enjoy!';
 const caretNames=['vertical line', 'underscore']
@@ -46,12 +51,12 @@ const thicknessNames=["hair","slim","bar","solid","thick","block"];
 const thicknessValues=[0.01,0.1,0.3,0.4,0.5,1];
 const reactivityNames=["extinct","asleep","glide","smoother","smooth","fast","lightning","instant"];
 const reactivityValues=[0.0001,0.001,0.02,0.045,0.07,0.1,1,10];
+const responsiveTheme = typeof com_typeracer_redesign_Redesign === "function";
 
 
 let caretErrorColor='240,163,163';
 //Same as text error highlighting (DEFAULT): '240,163,163'
 //Bright red: '210, 4, 45'
-let debugMode=false;
 let highlightErrorsInText = true;
 let lagDistance=0;
 let lagTime=999;
@@ -103,7 +108,7 @@ function log(msg){
 
 /*Data storing/loading*/
 function storeSettings() {
-    let data=[caretColor,caretErrorColor,caretReactivity,caretThickness,blinkDuration,maxOpacity,minOpacity,caretType,hideInputField,debugMode];
+    let data=[caretColor,caretErrorColor,caretReactivity,caretThickness,blinkDuration,maxOpacity,minOpacity,caretType,hideInputField,debugMode,highlighting];
     let output=data.join(separator);
     log("Storing settings data: "+output);
     window.localStorage.setItem(settingsItem,output);
@@ -111,12 +116,14 @@ function storeSettings() {
 
 function loadSettings() {
     let data = window.localStorage.getItem(settingsItem);
+    let message="Welcome to poem#3305's Smooth Caret\n===========================\n\n"+welcomeMessage+"\n\n(This message won't show again.)";
     if(data===null) {
         log('No existing settings data found -- creating default');
         storeSettings();
-        window.alert("Welcome to poem#3305's Smooth Caret\n===========================\n\n"+welcomeMessage+"\n\n(This message won't show again.)");
+        window.alert(message);
         return;
     }
+    try{
     data=data.split(separator);
     caretColor=data[0];
     caretErrorColor=data[1];
@@ -128,7 +135,14 @@ function loadSettings() {
     caretType=parseInt(data[7]);
     hideInputField=(data[8]==='true');
     debugMode=(data[9]==='true');
-    let log_data=[caretColor,caretErrorColor,caretReactivity,caretThickness,blinkDuration,maxOpacity,minOpacity,caretType,hideInputField,debugMode];
+    highlighting=(data[10]==='true');
+    }
+    catch(e){
+        storeSettings();
+        window.alert(message);
+        return;
+    }
+    let log_data=[caretColor,caretErrorColor,caretReactivity,caretThickness,blinkDuration,maxOpacity,minOpacity,caretType,hideInputField,debugMode,highlighting];
     let log_output=log_data.join(separator);
     log("Loaded settings data: "+log_output);
 }
@@ -160,12 +174,12 @@ top:-500%;
 display:none;
 }
 .inputPanel > tbody > tr > td > table > tbody > tr > td > div > div {
-margin-top:0;
+margin-top:1em !important;
+margin-bottom: 1em !important;
 }
 
 .inputPanel > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(1) > td > div > div > span {
     text-decoration: none;
-    color: inherit;
     background-image:none;
 }
 
@@ -183,7 +197,21 @@ margin-top:0;
 <style id='caretThicknessStyle'></style>
 <style id='caretAnimationStyle'></style>
 <style id='inputFieldStyle'></style>
+<style id='highlightingFieldStyle'></style>
 `);
+
+function setHighlightingStyle() {
+    let highlightingFieldStyle=document.getElementById('highlightingFieldStyle');
+    let outputStyle=`
+    .inputPanel > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(1) > td > div > div > span {
+    color: inherit;
+    }
+    `;
+    if(highlighting)
+        outputStyle='';
+    highlightingFieldStyle.innerHTML=outputStyle;
+}
+setHighlightingStyle();
 
 function setInputFieldStyle() {
     let inputFieldStyle=document.getElementById('inputFieldStyle');
@@ -265,6 +293,8 @@ function setCaretDimensions() {
     if(caretType===0) {
         outputStyle=`#caret {width: `+caretThickness+`ch;height: 1.5em;}`;
         caretOffset=[0,0];
+        if(!responsiveTheme)
+            caretOffset=[0,2+offset];
     }
     else if(caretType===1) {
         outputStyle=`#caret {width: 1.2ch;height: `+caretThickness+`em;`;
@@ -330,6 +360,7 @@ function moveCaretToTarget() {
             caret.style.left = xT + 'px';
             caret.style.top = yT + 'px';
             log('Showing caret');
+            inputField.setAttribute( "autocomplete", "e6f4e37l" );
             isCaretHidden = false;
         return;
         }
@@ -432,7 +463,8 @@ function monitorClock() {
         while(!styleParent.classList.contains('DialogBox')){
             styleParent=styleParent.parentElement;
         }
-        styleParent.remove();
+        let xButton=styleParent.firstElementChild.firstElementChild.firstElementChild;
+        xButton.click();
         checkedDisplayFormat=true;
         log('set display format to new style 1');
     }
@@ -502,9 +534,12 @@ function showCustomSettings() {
     let options=getOptionsHTML(caretType);
     let currentThicknessIndex=getThicknessIndex(caretThickness);
     let currentReactivityIndex=getReactivityIndex(caretReactivity);
-    let isChecked='';
+    let isInputChecked='';
     if(hideInputField)
-        isChecked=' checked';
+        isInputChecked=' checked';
+    let isHighlightingChecked='';
+    if(highlighting)
+        isHighlightingChecked=' checked';
     appearanceTab.innerHTML = `
 <table class="signUpForm editAccountForm">
   <colgroup>
@@ -518,7 +553,7 @@ function showCustomSettings() {
       <td>Color:</td>
       <td>
         <div>
-          <input autocomplete="off" type="text" value="`+caretColor+`" placeHolder="255, 124, 28" class="AdvancedTextBox" size="13" maxlength="13" id="caretColorInput">
+          <input autocomplete="off" type="text" value="`+caretColor+`" placeHolder="`+defaultSettings.caretColor+`" class="AdvancedTextBox" size="13" maxlength="13" id="caretColorInput">
         </div>
       </td>
     </tr>
@@ -538,6 +573,18 @@ function showCustomSettings() {
           <select class="DirtyComboBox DirtyComboBox-unfocused" size="1" id="caretTypeInput">
 `+options+`
           </select>
+        </div>
+      </td>
+    </tr>
+        <tr>
+      <td>
+        <div>
+          <input autocomplete="off" type="checkbox" id="highlightingInput" `+isHighlightingChecked+` style="margin-top: 0.5em; margin-bottom: 0.5em">
+        </div>
+      </td>
+      <td>
+        <div>
+          <label for="highlightingInput">Highlight typed letters (green)</label>
         </div>
       </td>
     </tr>
@@ -585,7 +632,7 @@ function showCustomSettings() {
     <tr>
       <td>
         <div>
-          <input autocomplete="off" type="checkbox" id="hideFieldInput" `+isChecked+`>
+          <input autocomplete="off" type="checkbox" id="hideFieldInput" `+isInputChecked+` style="margin-top: 0.5em; margin-bottom: 0.5em">
         </div>
       </td>
       <td>
@@ -642,7 +689,13 @@ function showCustomSettings() {
         hideInputField=document.getElementById('hideFieldInput').checked;
         setInputFieldStyle();
 
+
+        highlighting=document.getElementById('highlightingInput').checked;
+        setHighlightingStyle();
+
         storeSettings();
+        lagDistance=0;
+        lagTime=999;
 
         //debugMode,caretErrorColor (not in the UI yet)
         closeButton.click();
@@ -653,6 +706,7 @@ function showCustomSettings() {
         document.getElementById('caretColorInput').value=defaultSettings.caretColor;
         document.getElementById('caretBlinkDurationInput').value=blinkDuration;
         document.getElementById('hideFieldInput').checked=defaultSettings.hideInputField;
+        document.getElementById('highlightingInput').checked=defaultSettings.highlighting;
         document.getElementById('caretBlinkDurationInput').value=defaultSettings.blinkDuration;
 
         document.getElementById('caretTypeInput').innerHTML=getOptionsHTML(defaultSettings.caretType);
@@ -673,5 +727,10 @@ function showCustomSettings() {
         let defaultReactivityIndex=getReactivityIndex(defaultSettings.caretReactivity);
         document.getElementById('caretReactivityInput').value=defaultReactivityIndex;
         document.getElementById('caretReactivityOutput').innerHTML=reactivityNames[defaultReactivityIndex]
+
+        lagDistance=0;
+        lagTime=999;
+
+        debugMode=defaultSettings.debugMode;
     }
 }
