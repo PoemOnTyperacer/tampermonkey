@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Smooth Caret
 // @namespace    http://tampermonkey.net/
-// @version      0.1.3
+// @version      0.1.4
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @description  Customizable, smooth caret for TypeRacer
@@ -9,7 +9,6 @@
 // @match        https://play.typeracer.com/*
 // @match        https://staging.typeracer.com/*
 // ==/UserScript==
-
 
 
 const defaultSettings = {
@@ -25,6 +24,7 @@ const defaultSettings = {
     highlighting: true
 }
 
+
 //--------------- SETTINGS----------------------//
 let caretColor = defaultSettings.caretColor;
 let caretReactivity=defaultSettings.caretReactivity;
@@ -39,10 +39,12 @@ let highlighting=defaultSettings.highlighting;
 //---------------------------------------------//
 
 
-
 /*GLOBAL*/
+const version="0.1.4";
 const offset = 0;
 const settingsItem="smoothCaretSettingsv0-1-3";
+const changelog=[["0.1.4","Proper caret color picker\nChrome autofill issue fix\nSome menu padding\nInput panel padding",true]];
+let versionItem="smoothCaretVersion";
 const separator='|';
 const welcomeMessage='Click the gear wheel in the top right to customize the appearance and animation of the caret. This is an unofficial extension: if you notice any glitch after installing, disable it. Feel free to report any bugs in DMs @poem#3305. Enjoy!';
 const caretNames=['vertical line', 'underscore']
@@ -112,6 +114,11 @@ function storeSettings() {
     let output=data.join(separator);
     log("Storing settings data: "+output);
     window.localStorage.setItem(settingsItem,output);
+    storeVersion();
+}
+function storeVersion() {
+    log("Storing version number: "+version);
+    window.localStorage.setItem(versionItem,version);
 }
 
 function loadSettings() {
@@ -123,6 +130,34 @@ function loadSettings() {
         window.alert(message);
         return;
     }
+
+    let changelogLines=[];
+    let installedVersion=window.localStorage.getItem(versionItem);
+    let resetSettings=false;
+    if(installedVersion==null)
+        installedVersion="0.1.3";
+    let i=0;
+    while(i<changelog.length&&changelog[i][0]>installedVersion) {
+        resetSettings=resetSettings||changelog[i][2];
+        changelogLines.unshift(changelog[i][1]);
+        i+=1;
+    }
+    if(changelogLines.length!=0) {
+        let updateMessage="poem#3305's Smooth Caret update ("+version+")!\n===========================\n\n"+changelogLines.join('\n\n');
+        let updateMessageEnd="\n\n(This message won't show again.)";
+        log('Script upgrade detected: '+installedVersion+' -> '+version);
+        if(resetSettings){
+            log('Update requires new setting format -- resetting to default');
+            storeSettings();
+            updateMessage=updateMessage+"\n\nThis update requires your caret settings to be reset to default -- sorry for the inconvenience."+updateMessageEnd;
+            window.alert(updateMessage)
+            return;
+        }
+        storeVersion();
+        updateMessage=updateMessage+updateMessageEnd;
+        window.alert(updateMessage)
+    }
+
     try{
     data=data.split(separator);
     caretColor=data[0];
@@ -360,11 +395,11 @@ function moveCaretToTarget() {
             caret.style.left = xT + 'px';
             caret.style.top = yT + 'px';
             log('Showing caret');
-            inputField.setAttribute( "autocomplete", "e6f4e37l" );
             isCaretHidden = false;
         return;
         }
     }
+    inputField.setAttribute( "autocomplete", "chrome-off");
     let em_in_px = parseFloat(getComputedStyle(target).fontSize);
     if(yT-yC>em_in_px) {
         caret.style.transition='left 0s ease-out, top 0s ease-out';
@@ -496,7 +531,22 @@ function monitorClock() {
 setInterval(isHighlighting,5);
 setInterval(targetClock,1);
 setInterval(moveCaretToTarget,2);
+function componentToHex(c) { //where c is a string
+  var hex = parseInt(c).toString(16);
+  return hex.length == 1 ? "0" + hex : hex;
+}
 
+function RGBToHex(rgbString) {
+    let [red,green,blue]=rgbString.replace(/\s/g, '').split(',');
+    return "#" + componentToHex(red) + componentToHex(green) + componentToHex(blue);
+}
+
+function hexToRGB(hex) {
+    let red = parseInt(hex[1]+hex[2],16);
+    let green = parseInt(hex[3]+hex[4],16);
+    let blue = parseInt(hex[5]+hex[6],16);
+    return [red,green,blue].join(',');
+}
 
 /*CUSTOM SETTINGS*/
 function showCustomSettings() {
@@ -540,20 +590,21 @@ function showCustomSettings() {
     let isHighlightingChecked='';
     if(highlighting)
         isHighlightingChecked=' checked';
+    //let titleStyle="font-weight: bold; border-bottom: 1px solid #3b5998; padding: 0.3em 0;";
     appearanceTab.innerHTML = `
 <table class="signUpForm editAccountForm">
   <colgroup>
-    <col width="100px">
+    <col width="50%">
   </colgroup>
   <tbody>
     <tr>
       <td colspan="2" class="sectionHeaderRow">1. Appearance</td>
     </tr>
-    <tr>
+        <tr>
       <td>Color:</td>
       <td>
         <div>
-          <input autocomplete="off" type="text" value="`+caretColor+`" placeHolder="`+defaultSettings.caretColor+`" class="AdvancedTextBox" size="13" maxlength="13" id="caretColorInput">
+          <input autocomplete="off" type="color" value="`+RGBToHex(caretColor)+`" style="width:85%" id="caretColorInput2">
         </div>
       </td>
     </tr>
@@ -642,6 +693,9 @@ function showCustomSettings() {
       </td>
     </tr>
     <tr>
+      <td style="margin: 10px; padding: 5px;"></td>
+    </tr>
+    <tr>
       <td>
           <button type="button" class="gwt-Button" id="caretSubmitButton">Submit</button>
       </td>
@@ -672,7 +726,7 @@ function showCustomSettings() {
 
     //submit settings
     document.getElementById("caretSubmitButton").onclick=function(){
-        caretColor=document.getElementById('caretColorInput').value;
+        caretColor=hexToRGB(document.getElementById('caretColorInput2').value);
         maxOpacity=document.getElementById('caretMaxOpacityInput').value/100;
         minOpacity=document.getElementById('caretMinOpacityInput').value/100;
         setCaretRGB(caretColor);
@@ -703,7 +757,7 @@ function showCustomSettings() {
 
     // reset settings
     document.getElementById("caretResetLink").onclick=function(){
-        document.getElementById('caretColorInput').value=defaultSettings.caretColor;
+        document.getElementById('caretColorInput2').value=RGBToHex(defaultSettings.caretColor);
         document.getElementById('caretBlinkDurationInput').value=blinkDuration;
         document.getElementById('hideFieldInput').checked=defaultSettings.hideInputField;
         document.getElementById('highlightingInput').checked=defaultSettings.highlighting;
