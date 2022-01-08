@@ -1,8 +1,0 @@
-probably not coming up but "charlie💧Today at 10:22 PM
-also would it be difficult to make a modification to the site so that instead of showing your most recent 10 scores on a quote it would also show your best? after you race it"
-
-saves left counter -> from timespan api?
-
-fix guest nick support for exact last 10 avg by looking at the "sign in" button
-
-add a .01 tolerance to the reverse lag detection for the adjusted speed calculator script to deal with the lagged speed being rounded
