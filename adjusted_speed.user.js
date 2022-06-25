@@ -246,8 +246,8 @@ function navigateLogTo(index) { // assumption: replay window exists
                             console.log('21='+responseJSON[21]+', 27='+responseJSON[27]+', 33='+responseJSON[33]+', 39='+responseJSON[39]+', 45='+responseJSON[45]+', 51='+responseJSON[51]+'; total length ='+responseJSON.length.toString());
                         let resp_len = responseJSON.length;
                         let registered_speed = responseJSON[resp_len-19];
-                        let points = responseJSON[resp_len-14];
-                        let accuracy = responseJSON[resp_len-9];
+                        let points = responseJSON[resp_len-15];
+                        let accuracy = responseJSON[resp_len-10];
                         console.log('registered speed='+registered_speed+'; points='+points+'; accuracy='+accuracy);
                             window.localStorage.setItem('latestRegisteredSpeed', registered_speed);
                         window.localStorage.setItem('latestPoints', points);
