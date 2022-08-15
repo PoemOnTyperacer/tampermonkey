@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.5.5
+// @version      1.6.0
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
 // @author       poem & ph0t0shop
@@ -216,6 +216,51 @@ function navigateLogTo(index) { // assumption: replay window exists
     }
 }
 
+function eugeneIsSmart(new_log_contents) {
+    let actions = new Array();
+    let regex_stroke = "\\d+,(?:\\d+[\\+\\-$].?)+,";
+    let regex_char = '(?:\\d+[\\+\\-$].?)';
+    let matches = findAll(regex_stroke,new_log_contents);
+    for(let i=0; i<matches.length; i++) {
+        let keystroke = matches[i];
+        //console.log('typeof keystroke: '+typeof keystroke+'; keystroke: '+keystroke+'; len: '+keystroke.length);
+        let chars = findAll(regex_char,keystroke);
+        let delay = parseInt(keystroke.split(',')[0])
+        if(chars[0][chars[0].length-2]=='$') {
+            let new_el = ['0-k',chars[0]]
+            chars.shift();
+            chars.push(new_el);
+        }
+        for(let j=0; j<chars.length; j++) {
+            let char = chars[j];
+            if(j>0) {
+                actions.push([char[char.length-2], 0]);
+            }
+            else {
+                actions.push([char[char.length-2], delay]);
+            }
+        }
+    }
+    //console.log('actions: '+actions);
+
+    let tot_time=0;
+    let raw_times=[]
+    for(let i=0; i<actions.length; i++) {
+        let action = actions[i];
+        tot_time += action[1];
+        if(action[0]=='+'|| action[0]=='$') {
+            raw_times.push(action[1]);
+        }
+        else {
+            raw_times.pop();
+        }
+    }
+    let raw_time = raw_times.reduce((a, b) => a + b, 0);
+    let correction_time = tot_time-raw_time;
+
+    return [tot_time,correction_time,raw_time];
+}
+
 (async () => {
     // AFTER-RACE ADJUSTED
     if (!status.url.startsWith('https://data.typeracer.com/')) {
@@ -285,48 +330,8 @@ function navigateLogTo(index) { // assumption: replay window exists
 
             //$ glitch test new_log_contents = "0,2,347,0+I,47,1+ ,2,9,139,0+t,28,1+h,113,2+o,49,3+u,62,4+g,82,5+h,111,6+t,91,7+:,13,8+ ,11,5,160,0+T,42,1+h,95,2+a,40,3+t,35,4+ ,16,3,53,0+i,71,1+s,44,2+ ,19,4,92,0+t,64,1+h,80,2+e,40,3+ ,23,6,72,0+f,86,1+e,18,2+a,41,3+r,253,4+.,26,5+ ,29,2,106,0+I,40,1+ ,31,5,54,0+h,58,1+a,14,2+v,90,3+e,32,4+ ,36,5,97,0+l,144,1+o,72,2+s,29,3+t,75,4+ ,41,10,71,0+s,41,1+o,28,2+m,43,3+e,10,4+t,103,5+h,7,6+i,54,7+n,16,8+g,123,9+ ,51,11,95,0+i,10,1+m,158,2+p,56,3+o,54,4+r,114,5+t,72,6+a,55,7+n,55,8+t,99,9+,,13,10+ ,62,4,26,0+a,97,1+n,71,2+d,64,3+ ,66,2,144,0+I,21,1+ ,68,7,76,0+c,32,1+a,56,2+n,136,2+n,48,4+o,39,5+t,97,6+ ,75,5,53,0+f,57,1+i,39,2+n,44,3+d,47,4+ ,80,4,31,0+i,64,1+t,72,2+,,23,3+ ,84,4,42,0+a,89,1+n,46,2+d,89,3+ ,88,2,135,0+I,49,1+ ,90,5,126,0+n,98,1+e,150,1+e,81,3+d,32,4+ ,95,4,22,0+i,75,1+t,111,2+.,25,3+ ,99,11,127,0+i,72,1+t,51,2+ ,19,3+i,66,4+s,65,5+ ,60,6+f,93,7+e,438,0$I1-t1- 1-i1-s1- 1-f1-e,88,1+t,54,2+ ,102,3,35,0+i,63,1+s,45,2+ ,105,5,85,0+f,70,1+e,42,2+a,39,3+r,39,4+ ,110,5,22,0+l,26,1+i,58,2+k,30,3+e,73,4+ ,115,3,80,0+i,72,1+f,79,2+ ,118,8,56,0+s,48,1+o,31,2+m,65,3+e,57,4+o,16,5+n,79,6+e,49,7+ ,126,5,68,0+l,132,1+o,79,2+s,11,3+t,12,4+ ,131,4,74,0+h,31,1+i,22,2+s,99,3+ ,135,8,31,0+g,127,1+l,55,2+a,47,3+s,171,3+s,113,5+e,95,6+s,72,7+ ,143,4,81,0+a,50,1+n,37,2+d,80,3+ ,147,5,72,0+w,40,1+e,96,2+n,54,3+t,98,4+ ,152,3,46,0+t,34,1+o,54,2+ ,155,4,73,0+t,55,1+h,68,2+e,39,3+ ,159,8,71,0+g,88,1+l,64,2+a,22,3+s,169,3+s,81,5+e,73,6+s,207,7+ ,167,12,70,0+s,90,0+s,102,2+t,67,3+o,280,3-o,135,2-t,136,0-s,88,1+t,46,2+o,90,3+r,55,4+e,15,5+ ,173,4,106,0+a,233,1+n,119,2+d,48,3+ ,177,5,63,0+t,66,1+h,31,2+e,88,3+y,22,4+ ,182,5,42,0+t,89,1+o,79,2+l,54,3+d,58,4+ ,187,26,72,0+h,22,1+i,34,2+m,8,3+h,64,4+ ,40,5+t,120,6+h,40,7+a,64,8+t,46,9+ ,66,10+t,377,1-i1-m1-h1- 1-t1-h1-a1-t1- 1-t,39,1+i,22,2+m,34,3+h,40,4+ ,49,5+t,79,6+h,65,7+a,22,8+t,66,9+ ,79,10+t,400,1-i1-m1-h1- 1-t1-h1-a1-t1- 1-t,33,1+i,12,2+m,97,3+ ,191,5,49,0+t,113,1+h,57,2+a,48,3+t,39,4+ ,196,4,89,0+t,45,1+h,59,2+e,39,3+ ,200,6,104,0+w,46,1+o,49,2+r,23,3+l,91,4+d,30,5+ ,206,4,25,0+h,94,1+a,24,2+d,99,3+ ,210,4,87,0+r,72,1+u,104,2+n,41,3+ ,214,4,71,0+o,40,1+u,40,2+t,96,3+ ,218,3,13,0+o,44,1+f,55,2+ ,221,8,88,0+g,54,1+l,100,2+a,23,3+s,159,3+s,64,5+e,96,6+s,81,7+ ,229,4,87,0+a,64,1+n,49,2+d,61,3+ ,233,3,106,0+h,40,1+e,123,2+ ,236,6,149,0+w,272,1+o,40,2+u,112,3+l,72,4+d,65,5+ ,242,5,31,0+j,121,1+u,41,2+s,19,3+t,84,4+ ,247,5,31,0+h,48,1+a,22,2+v,66,3+e,48,4+ ,252,3,94,0+t,48,1+o,26,2+ ,255,3,46,0+d,90,1+o,13,2+ ,258,8,57,0+w,98,1+i,40,2+t,43,3+h,109,4+o,81,5+u,8,6+t,103,7+.,";
 
-            let actions = new Array();
-            let regex_stroke = "\\d+,(?:\\d+[\\+\\-$].?)+,";
-            let regex_char = '(?:\\d+[\\+\\-$].?)';
-            let matches = findAll(regex_stroke,new_log_contents);
-            for(let i=0; i<matches.length; i++) {
-                let keystroke = matches[i];
-                //console.log('typeof keystroke: '+typeof keystroke+'; keystroke: '+keystroke+'; len: '+keystroke.length);
-                let chars = findAll(regex_char,keystroke);
-                let delay = parseInt(keystroke.split(',')[0])
-                if(chars[0][chars[0].length-2]=='$') {
-                    let new_el = ['0-k',chars[0]]
-                    chars.shift();
-                    chars.push(new_el);
-                }
-                for(let j=0; j<chars.length; j++) {
-                    let char = chars[j];
-                    if(j>0) {
-                        actions.push([char[char.length-2], 0]);
-                    }
-                    else {
-                        actions.push([char[char.length-2], delay]);
-                    }
-                }
-            }
-            //console.log('actions: '+actions);
 
-            let tot_time=0;
-            let raw_times=[]
-            for(let i=0; i<actions.length; i++) {
-                let action = actions[i];
-                tot_time += action[1];
-                if(action[0]=='+'|| action[0]=='$') {
-                    raw_times.push(action[1]);
-                }
-                else {
-                    raw_times.pop();
-                }
-            }
-            let raw_time = raw_times.reduce((a, b) => a + b, 0);
-            let correction_time = tot_time-raw_time;
-
-
+            let [tot_time,correction_time,raw_time] = eugeneIsSmart(new_log_contents);
             console.log('Total time: '+tot_time+'; correction time: '+correction_time+'; raw time: '+raw_time);
 
 
@@ -650,6 +655,11 @@ function navigateLogTo(index) { // assumption: replay window exists
         log_contents = repairLog(log_contents)
         console.log(log_contents);
 
+        let new_log_contents = repairLog(typingLog.substringAfterNth('|',1),true);
+        console.log('NEW LOG BUILD - '+new_log_contents);
+        let [tot_time,correction_time,raw_time] = eugeneIsSmart(new_log_contents);
+        console.log('Total time: '+tot_time+'; correction time: '+correction_time+'; raw time: '+raw_time);
+
         // log_contents = 'D268o270n161\'240t79 64m113a62k98e79 49a96s143s143u82m223p401t256i80o160n143s65 96-448 303f191i81n159d3 77t98h294e42 46c113o31u146r31a97g128e191 49t128o35 107a49s111k97 128q112u113e78s210t159i64o128n161s79 81a79n111d65 81e240t479o64 128e112x208p97r110e178s159s145 62w80h98a80t111 79y97o31u177 65r64e191a95l98l95y63 80w145a81n88t86.160 96C193o191m161m113u176n158i146c224a94t202e184 79w64i66t93h192 81o576t84h172e176r160s176 80a47s179 94c241l63e127a96r112l464;2y48l672y62 98a207y928 96a208s112 80y175o66u143 48c31a112n65 112t81o94t1026o48 143a80v145o78i145d160 81m127i193s287u207n161d112e113r128s191t177a111n97d110i129n145g95s193,111 239s161a113d807n113e128s175s129 65a63n95d97 63d113r160e241a110a546m62a97.160 208W160i193t94h194 48t127h176i112j1377u160s48t160 63t113h159i64s161 47o96n145e80 47a63g161g145r216e167r1329e143e177m367e111n97t112,897 351y1184o48u159 82c79a79n161 159c225o97m159p207l128e98t110e113l512y111 225t143r337a208n96s127f273o111r112m81 97y79o64u128r65 48l62i146f48e47.96';
         //     Parsing the log to access partial adjusted speeds
         log_contents = log_contents.replace(/(\\b.)/g, 'N'); //numbers and dashes
@@ -693,6 +703,14 @@ function navigateLogTo(index) { // assumption: replay window exists
         partialAdjusteds.push(adjusted_speed);
 
         console.log('Partial Adjusted speeds: ' + partialAdjusteds);
+
+
+        let raw_speed = 12000 * quote_length / raw_time;
+        let raw_desslejusted_speed = 12000 * quote_length / (raw_time - start);
+        let raw_adjusted_speed = 12000 * (quote_length - 1) / (raw_time - start);
+        let correction_ratio = correction_time / tot_time;
+        console.log('raw speed: '+raw_speed+'; raw adjusted speed: '+raw_adjusted_speed+'; raw desslejusted speed: '+raw_desslejusted_speed+'; correction ratio: '+correction_ratio);
+
 
         status.latestPartialAdjusteds = partialAdjusteds;
         status.delays = delays;
@@ -759,6 +777,10 @@ function navigateLogTo(index) { // assumption: replay window exists
         adjusted_speed = adjusted_speed.toFixed(3);
         desslejusted = desslejusted.toFixed(2);
 
+        raw_speed = raw_speed.toFixed(2);
+        raw_adjusted_speed = raw_adjusted_speed.toFixed(2);
+        raw_desslejusted_speed = raw_desslejusted_speed.toFixed(2);
+        let correction_percentage = (100*correction_ratio).toFixed(2);
 
         let text_id = raceData.tid;
         let relative_average = await getLatestDifficulty(text_id); // TODO: try/catch
@@ -777,9 +799,9 @@ function navigateLogTo(index) { // assumption: replay window exists
         document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
         let ds_html = '';
         if (SHOW_DESSLEJUSTED) {
-            ds_html = '<tr><td>Desslejusted</td><td>' + desslejusted + ' WPM</td></tr>';
+            ds_html = '<tr><td>Desslejusted</td><td>' + desslejusted + ' WPM</td></tr><tr><td></td><td>' + raw_desslejusted_speed + ' raw</td></tr>';
         }
-        document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM (ping: ' + ping + 'ms)</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM (start: ' + start_time_ms + 'ms)</td></tr>' + ds_html + '<br>';
+        document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM (ping: ' + ping + 'ms)</td></tr><tr><td></td><td>' + raw_speed + ' raw (correction time: ' + correction_percentage + '%)</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM (start: ' + start_time_ms + 'ms)</td></tr><tr><td></td><td>' + raw_adjusted_speed + ' raw</td></tr>' + ds_html + '<br>';
     }
 })();
 
