@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.6.0
+// @version      1.6.1
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
 // @author       poem & ph0t0shop
@@ -554,20 +554,32 @@ function eugeneIsSmart(new_log_contents) {
             
             let displayed_accuracy = parseFloat(accuracyTag.innerHTML.slice(0,-1));
             let rounded_accuracy = Math.round(accuracy*1000)/10;
+            let accuracyResult;
+            let accuracyTitle;
             if(displayed_accuracy!=rounded_accuracy) {
                 let alert_msg = 'Wrong accuracy endpoint (got '+(parseFloat(accuracy)*100).toFixed(DEC_PLACES)+' % value instead of '+displayed_accuracy.toString()+'%)';
                 //window.alert(alert_msg);
                 console.log(alert_msg);
                 oldAccuracyResult='Error';
-            }
+            
 
             accuracy = Math.min(1.0, parseFloat(accuracy));
             let correctionResult = (speeds.correctionTime/1000).toString()+'s correction time = '+(Math.round(speeds.correctionRatio*Math.pow(10,DEC_PLACES+2))/100).toString()+' %';
             //let allAccuracyResult = (Math.round(accuracy*Math.pow(10,DEC_PLACES+2))/100).toString()+' % ('+correctionResult+')';
 
-            let accuracyResult = (Math.round(speeds.correctionRatio*Math.pow(10,DEC_PLACES+2))/100).toString()+' %';
-            let accuracyTitle = document.querySelector('.tblOwnStats > tbody > tr:nth-child(3) > td:first-child');
-            accuracyTitle.innerHTML = 'Correction time:'
+            accuracyResult = (Math.round(speeds.correctionRatio*Math.pow(10,DEC_PLACES+2))/100).toString()+' %';
+            accuracyTitle = document.querySelector('.tblOwnStats > tbody > tr:nth-child(3) > td:first-child');
+            accuracyTitle.innerHTML = 'Correction time:';
+}
+
+            else{
+                let ratioAccuracy = (Math.round(speeds.correctionRatio*Math.pow(10,DEC_PLACES+2))/100).toString()+' %';
+            let ratioAndOldAccuracy = ratioAccuracy+' ('+(Math.round(accuracy*Math.pow(10,DEC_PLACES+2))/100).toString()+' % TR accuracy)';
+
+            accuracyResult = ratioAndOldAccuracy;
+            accuracyTitle = document.querySelector('.tblOwnStats > tbody > tr:nth-child(3) > td:first-child');
+            accuracyTitle.innerHTML = 'Correction time:';
+            }
 
 
 
