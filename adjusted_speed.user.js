@@ -825,6 +825,7 @@ function eugeneIsSmart(new_log_contents) {
 
         let points = raceData.pts.toFixed(2);
 
+        document.querySelector('.raceDetails > tbody > tr:nth-child(1) > td:nth-child(2)').colSpan="2";
         if(document.querySelector('.raceDetails > tbody > tr:nth-child(' + (univ_index+3) + ') > td:nth-child(1)')) {
             if(document.querySelector('.raceDetails > tbody > tr:nth-child(' + (univ_index+3) + ') > td:nth-child(1)').innerText=="Opponents")
                 document.querySelector('.raceDetails > tbody > tr:nth-child(' + (univ_index+3) + ') > td:nth-child(2)').colSpan="2";
