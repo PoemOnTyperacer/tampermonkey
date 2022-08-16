@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.6.3
+// @version      1.6.4
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
 // @author       poem & ph0t0shop
@@ -825,8 +825,10 @@ function eugeneIsSmart(new_log_contents) {
 
         let points = raceData.pts.toFixed(2);
 
-        if(document.querySelector('.raceDetails > tbody > tr:nth-child(' + (univ_index+3) + ') > td:nth-child(1)').innerText=="Opponents")
-            document.querySelector('.raceDetails > tbody > tr:nth-child(' + (univ_index+3) + ') > td:nth-child(2)').colSpan="2";
+        if(document.querySelector('.raceDetails > tbody > tr:nth-child(' + (univ_index+3) + ') > td:nth-child(1)')) {
+            if(document.querySelector('.raceDetails > tbody > tr:nth-child(' + (univ_index+3) + ') > td:nth-child(1)').innerText=="Opponents")
+                document.querySelector('.raceDetails > tbody > tr:nth-child(' + (univ_index+3) + ') > td:nth-child(2)').colSpan="2";
+        }
 
         let ghost_button_html = document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ') > td:nth-child(2) > a').outerHTML.split('<a').join('<a style="margin-left: 0ch !important;"');
 
