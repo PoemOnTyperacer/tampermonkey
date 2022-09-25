@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Smooth Caret
 // @namespace    http://tampermonkey.net/
-// @version      0.1.4
+// @version      0.1.5
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @description  Customizable, smooth caret for TypeRacer
@@ -40,10 +40,10 @@ let highlighting=defaultSettings.highlighting;
 
 
 /*GLOBAL*/
-const version="0.1.4";
+const version="0.1.3";
 const offset = 0;
 const settingsItem="smoothCaretSettingsv0-1-3";
-const changelog=[["0.1.4","Proper caret color picker\nChrome autofill issue fix\nSome menu padding\nInput panel padding",true]];
+const changelog=[];
 let versionItem="smoothCaretVersion";
 const separator='|';
 const welcomeMessage='Click the gear wheel in the top right to customize the appearance and animation of the caret. This is an unofficial extension: if you notice any glitch after installing, disable it. Feel free to report any bugs in DMs @poem#3305. Enjoy!';
@@ -169,7 +169,7 @@ function loadSettings() {
     minOpacity=parseFloat(data[6]);
     caretType=parseInt(data[7]);
     hideInputField=(data[8]==='true');
-    debugMode=(data[9]==='true');
+    //debugMode=(data[9]==='true');
     highlighting=(data[10]==='true');
     }
     catch(e){
@@ -188,10 +188,10 @@ loadSettings();
 let noTextErrHighStyle=`
 .inputPanel > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(1) > td > div > div > span {
 text-decoration: none;
-color: inherit;
+
 background-color: transparent;
 }
-`;
+`;//color: inherit;
 if(highlightErrorsInText)
     noTextErrHighStyle='';
 let caretOffset=[];
@@ -380,7 +380,7 @@ function moveCaretToTarget() {
     let xT = rect.left+window.scrollX+caretOffset[0];
     let yT = rect.top+window.scrollY+caretOffset[1];
 
-    // store the elements coordinate
+        // store the elements coordinate
     let xC = caret.offsetLeft;
     let yC = caret.offsetTop;
 
@@ -388,6 +388,17 @@ function moveCaretToTarget() {
     if(inputFields.length==0)
         return;
     inputField=inputFields[0];
+
+
+    if(hideInputField) {
+        let computedCaretHeight=parseInt(getComputedStyle(caret).height);
+        let inputPanelEls=document.getElementsByClassName('inputPanel');
+        if(inputPanelEls.length>0) {
+            inputField.style.left = getComputedStyle(inputPanelEls[0]).left;
+        }
+        inputField.style.top = (yT+computedCaretHeight) + 'px';
+    }
+
     if(inputField === document.activeElement) {
         if(caret.style.visibility=='hidden') {
             caret.style.visibility='visible';
@@ -445,7 +456,7 @@ function targetClock() {
     for(let i=0; i<textNodes.length; i++) {
         let node = textNodes[i];
         try {
-        let style = getComputedStyle(node)
+        let style = getComputedStyle(node);
         //if(style.backgroundImage=='url("data:image/gif;base64,R0lGODdhAQAoAIABAERmZv///ywAAAAAAQAoAAACBYSPqctYADs=")') {
         if(style.backgroundRepeat=='repeat-y') {
             node.style.backgroundImage="none";
@@ -528,9 +539,10 @@ function monitorClock() {
     }
 }
 
-setInterval(isHighlighting,5);
-setInterval(targetClock,1);
-setInterval(moveCaretToTarget,2);
+const INTERVAL=10;
+setInterval(isHighlighting,INTERVAL);
+setInterval(targetClock,INTERVAL);
+setInterval(moveCaretToTarget,INTERVAL);
 function componentToHex(c) { //where c is a string
   var hex = parseInt(c).toString(16);
   return hex.length == 1 ? "0" + hex : hex;
