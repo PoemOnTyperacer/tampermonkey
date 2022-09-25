@@ -40,7 +40,7 @@ let highlighting=defaultSettings.highlighting;
 
 
 /*GLOBAL*/
-const version="0.1.3";
+const version="0.1.5";
 const offset = 0;
 const settingsItem="smoothCaretSettingsv0-1-3";
 const changelog=[];
