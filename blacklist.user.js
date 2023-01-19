@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Blacklist
 // @namespace    http://tampermonkey.net/
-// @version      0.0.3
+// @version      0.0.4
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @description  Hide guests and users of your choice on maintrack. Doesn't affect leaderboards, competitions, messages, or Race details pages
@@ -16,7 +16,7 @@ const BLOCK_GUESTS=true;
 const DEBUG = false;
 
 const RED_OUTLINE_MODE=false;
-const GUI_INTERVAL = 2000;
+const GUI_INTERVAL = 1000;
 const ELEMENT_CONFIG = {
     childList: true,
     subtree: true,
@@ -216,6 +216,25 @@ function GUIClock() {
     if(racing&&((gameStatusLabels.length==0) || ( gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')))){
         racing = false;
         log('Race finished (GUI detection)');
+    }
+    if(gameStatusLabels.length!=0) {
+        let label=gameStatusLabels[0];
+        let new_label;
+        if(label.style.display!='none') {
+            new_label=label.cloneNode(true);
+            new_label.id='newlabel';
+            new_label.class='newlabel';
+            label.style.display='none';
+            label.parentNode.insertBefore(new_label, label.nextSibling);
+        }
+        else {
+            new_label=document.getElementById('newlabel');
+        }
+        if(gameStatus.startsWith('You finished')&&gameStatus!='You finished 1st!') {
+           new_label.innerText='The race has ended.';
+        }
+        else
+            new_label.innerText=gameStatus;
     }
 }
 setInterval(GUIClock, GUI_INTERVAL);
