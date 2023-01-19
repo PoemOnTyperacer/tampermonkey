@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Blacklist
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      0.0.3
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @description  Hide guests and users of your choice on maintrack. Doesn't affect leaderboards, competitions, messages, or Race details pages
@@ -11,7 +11,7 @@
 // @noframes
 // ==/UserScript==
 
-const BLACK_LIST=[]; //ex: const BLACK_LIST=['poem','despot'];
+const BLACK_LIST=[]; //ex 'poem'
 const BLOCK_GUESTS=true;
 const DEBUG = false;
 
@@ -60,15 +60,16 @@ function elementMutate(mutations_list) {
                     disconnectRankObservers();
                     competitors=[];
                     total_competitors=0;
-                    racing=true;
                     standings=1;
+                    racing=true;
                     blocked_standings=0;
                     queue=[];
                 }
                 competitors.push([added_node,null,null]);
+                let potential_username=added_node.querySelector('.lblUsername').innerText;
                 if(RED_OUTLINE_MODE)
                     added_node.style.filter='opacity(0%)';
-                else {
+                else if(potential_username!='you'&&potential_username!='(you)') {
                     added_node.style.position='absolute';
                     added_node.style.zIndex='-1';
                     added_node.style.top="-1000px";
