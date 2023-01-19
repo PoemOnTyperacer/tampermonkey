@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Blacklist
 // @namespace    http://tampermonkey.net/
-// @version      0.0.1
+// @version      0.0.2
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @description  Hide guests and users of your choice on maintrack. Doesn't affect leaderboards, competitions, messages, or Race details pages
@@ -11,7 +11,7 @@
 // @noframes
 // ==/UserScript==
 
-const BLACK_LIST=[]; //ex 'poem'
+const BLACK_LIST=[]; //ex: const BLACK_LIST=['poem','despot'];
 const BLOCK_GUESTS=true;
 const DEBUG = false;
 
@@ -62,10 +62,17 @@ function elementMutate(mutations_list) {
                     total_competitors=0;
                     racing=true;
                     standings=1;
+                    blocked_standings=0;
                     queue=[];
                 }
                 competitors.push([added_node,null,null]);
-                added_node.style.filter='opacity(0%)';
+                if(RED_OUTLINE_MODE)
+                    added_node.style.filter='opacity(0%)';
+                else {
+                    added_node.style.position='absolute';
+                    added_node.style.zIndex='-1';
+                    added_node.style.top="-1000px";
+                }
                 setTimeout(function() {onNewPlayerRow(total_competitors++);},1000); //wait for line to load
             }
         }
@@ -154,6 +161,7 @@ function onNewPlayerRow(id) {
     let row = competitors[id][0];
     let labelUsername=row.querySelector('.lblUsername');
     let username=labelUsername.innerText;
+    let blocked=false;
     if(username[0]=='(')
         username=username.slice(1,-1);
     if(username=='you'||username=='(you)') {
@@ -165,8 +173,10 @@ function onNewPlayerRow(id) {
         log('player #'+id+' is a guest');
         if(BLOCK_GUESTS) {
             log('hiding guest user', true);
-            if(RED_OUTLINE_MODE)
+            blocked=true;
+            if(RED_OUTLINE_MODE) {
                 row.style.border='4px solid red';
+            }
             else
                 row.style.display='none';
         }
@@ -175,14 +185,22 @@ function onNewPlayerRow(id) {
         log('player #'+id+' is '+username);
         if(BLACK_LIST.includes(username)) {
             log('hiding blacklisted user', true);
-            if(RED_OUTLINE_MODE)
+            blocked=true;
+            if(RED_OUTLINE_MODE) {
                 row.style.border='4px solid red';
+            }
             else
                 row.style.display='none';
         }
     }
 
-    row.style.filter='opacity(100%)';
+    if(RED_OUTLINE_MODE)
+            row.style.filter='opacity(100%)';
+    if(!blocked) {
+        row.style.position='relative';
+        row.style.zIndex='0';
+        row.style.top="";
+    }
     let rankObserver = new MutationObserver(function(mutations_list) {rankMutate(mutations_list,id);});
     rankObserver.observe(row.querySelector('.rank'), RANK_CONFIG)
     competitors[id][1]=username;
