@@ -11,7 +11,7 @@
 // @noframes
 // ==/UserScript==
 
-const BLACK_LIST=[]; //ex 'poem'
+const BLACK_LIST=[]; //eg: const BLACK_LIST=['poem','despot'];
 const BLOCK_GUESTS=true;
 const DEBUG = false;
 
