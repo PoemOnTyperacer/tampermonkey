@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Blacklist
 // @namespace    http://tampermonkey.net/
-// @version      0.0.4
+// @version      0.0.5
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @description  Hide guests and users of your choice on maintrack. Doesn't affect leaderboards, competitions, messages, or Race details pages
@@ -36,6 +36,7 @@ let racing=false;
 let standings=1;
 let blocked_standings=0;
 let queue=[];
+let won=false;
 
 function log(msg, highlight=false){
     if(!DEBUG)
@@ -64,6 +65,7 @@ function elementMutate(mutations_list) {
                     racing=true;
                     blocked_standings=0;
                     queue=[];
+                    won=false;
                 }
                 competitors.push([added_node,null,null]);
                 let potential_username=added_node.querySelector('.lblUsername').innerText;
@@ -129,7 +131,9 @@ function editLabel(id,rank) {
         else
             output+='.';
         labelRank.innerText=output;
-
+        if(username=='you'&&standings==1) {
+            won=true;
+        }
         standings++;
     }
 
@@ -231,7 +235,12 @@ function GUIClock() {
             new_label=document.getElementById('newlabel');
         }
         if(gameStatus.startsWith('You finished')&&gameStatus!='You finished 1st!') {
-           new_label.innerText='The race has ended.';
+            if(won) {
+                log('Edited game status');
+                new_label.innerText='You finished 1st!';
+            }
+            else
+                new_label.innerText='The race has ended.';
         }
         else
             new_label.innerText=gameStatus;
