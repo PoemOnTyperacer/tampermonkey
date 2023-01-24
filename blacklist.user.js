@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Typeracer: Blacklist
 // @namespace    http://tampermonkey.net/
-// @version      0.0.5
+// @version      0.0.6
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
-// @description  Hide guests and users of your choice on maintrack. Doesn't affect leaderboards, competitions, messages, or Race details pages
+// @description  Hide guests and users of your choice on maintrack/private tracks. Doesn't affect leaderboards, competitions, messages, or Race details pages
 // @author       poem#3305
 // @match        https://play.typeracer.com/*
 // @match        https://staging.typeracer.com/*
@@ -165,26 +165,28 @@ function ordinal_suffix_of(i) { //thanks Salman A on stackoverflow
 function onNewPlayerRow(id) {
     let row = competitors[id][0];
     let labelUsername=row.querySelector('.lblUsername');
+    let statusLabel=document.querySelector('.gameStatusLabel').innerText;
     let username=labelUsername.innerText;
     let blocked=false;
     if(username[0]=='(')
         username=username.slice(1,-1);
-    if(username=='you'||username=='(you)') {
+    if(username=='you'||username=='(you)'||(username==''&&statusLabel=="Join this race, whenever you're ready...")) {
         username='you';
         log('player #'+id+' is self');
     }
     else if(username=='') {
-        username='guest_user';
-        log('player #'+id+' is a guest');
-        if(BLOCK_GUESTS) {
-            log('hiding guest user', true);
-            blocked=true;
-            if(RED_OUTLINE_MODE) {
-                row.style.border='4px solid red';
+            username='guest_user';
+            log('player #'+id+' is a guest');
+            if(BLOCK_GUESTS) {
+                log('hiding guest user', true);
+                blocked=true;
+                if(RED_OUTLINE_MODE) {
+                    row.style.border='4px solid red';
+                }
+                else
+                    row.style.display='none';
             }
-            else
-                row.style.display='none';
-        }
+
     }
     else {
         log('player #'+id+' is '+username);
