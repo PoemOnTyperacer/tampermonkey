@@ -165,7 +165,7 @@ function editLabel(id,rank) {
     let username = competitors[id][1];
     let labelRank=row.querySelector('.rank');
 
-    if(blocked_standings+standings!=rank) { //if editLabel receive a player's rank in the wrong order, store them for later
+    if(blocked_standings+standings!=rank) { //if editLabel receives a player's rank in the wrong order, store them for later
         queue.push([id,rank]);
         log('queuing user #'+id+', username='+username+', rank='+rank+' received too early (standings='+standings+', blocked_standings='+blocked_standings+')');
         return;
