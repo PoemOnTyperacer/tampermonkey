@@ -8,6 +8,7 @@
 // @author       poem#3305
 // @match        https://play.typeracer.com/*
 // @match        https://staging.typeracer.com/*
+// @noframes
 // ==/UserScript==
 
 
