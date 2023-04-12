@@ -115,6 +115,7 @@ function insertCustomHTML() {
 
     let saveButton=document.getElementById('hotlistSaveButton');
     saveButton.onclick = function() {
+        let hotlistInputField=document.getElementById('hotlistInputField');
         log('save button clicked ; loading and saving input field value='+hotlistInputField.value);
         storeData(hotlistInputField.value);
         loadData();
