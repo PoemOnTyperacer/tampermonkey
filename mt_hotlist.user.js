@@ -5,7 +5,7 @@
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/mt_hotlist.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/mt_hotlist.user.js
 // @description  Highlight words of your choosing in monkeytype tests
-// @author       Poem
+// @author       poem#3305
 // @match        https://monkeytype.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=monkeytype.com
 // @grant        GM_addStyle
