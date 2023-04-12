@@ -10,6 +10,15 @@
     <br />
     <br />
     <img src='https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/resources/summary.png'>
+    <br />
+    <br />
+    <br />
+    <br />
   </p>
 </div>
 
+## Usage
+
+1. Get Tampermonkey for your browser ([for chrome](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo?hl=fr) / [for firefox](https://addons.mozilla.org/fr/firefox/addon/tampermonkey/))
+2. Select your script and click the "Raw" button at the top right of the code
+3. Click Install
