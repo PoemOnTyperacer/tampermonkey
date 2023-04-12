@@ -13,6 +13,7 @@
 // @grant        GM_addStyle
 // @connect      data.typeracer.com
 // @connect      typeracerdata.com
+// @noframes
 // ==/UserScript==
 
 /*=========SETTINGS=============*/
