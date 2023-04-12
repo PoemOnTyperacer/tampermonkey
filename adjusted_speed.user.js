@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.6.4
+// @version      1.6.5
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
 // @author       poem & ph0t0shop
@@ -172,7 +172,7 @@ function createAdjustedReplay() { // assumption: replay window exists
 
     let buttonsLine = document.querySelector('.TypingLogReplayPlayer > tbody > tr:nth-child(4) > td > table > tbody > tr');
 
-    let maxAdjButton = getElementFromString('td', '<img src="https://github.com/PoemOnTyperacer/tampermonkey/blob/master/peak_button_2.png?raw=true" style="width: 15px; height: 20px;" border="0" class="ImageButton" title="Go to peak adjusted speed: ' + status.maximumAdjustedValue + '">');
+    let maxAdjButton = getElementFromString('td', '<img src="https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/resources/peak_button_2.png" style="width: 15px; height: 20px;" border="0" class="ImageButton" title="Go to peak adjusted speed: ' + status.maximumAdjustedValue + '">');
     maxAdjButton.style.position = 'relative';
     maxAdjButton.id = 'maxAdjButton';
 
