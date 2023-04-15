@@ -2,7 +2,7 @@
 // @name         TR: Move countdown popup
 // @namespace    http://tampermonkey.net/
 // @version      0.0.1
-// @description  Enables drag and drop on the countdown popup in Typeracer
+// @description  Drag and drop the countdown popup in Typeracer
 // @author       poem#3305
 // @match        https://play.typeracer.com/*
 // @match        https://staging.typeracer.com/*
