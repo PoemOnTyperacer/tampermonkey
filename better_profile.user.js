@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Awards Organizer
+// @name         Typeracer: Better Profiles
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @description  Organizes awards by rank & type
+// @description  Cleaner typeracer profiles, including organized awards by rank & type
 // @author       keegant & poem
 // @match        https://data.typeracer.com/pit/profile?user=*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=typeracer.com
