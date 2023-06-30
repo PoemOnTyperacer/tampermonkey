@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Smooth Caret
 // @namespace    http://tampermonkey.net/
-// @version      0.1.5
+// @version      0.1.6
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @description  Customizable, smooth caret for TypeRacer
@@ -253,9 +253,10 @@ function setInputFieldStyle() {
     let inputFieldStyle=document.getElementById('inputFieldStyle');
     let outputStyle=`
 .mainViewport table.inputPanel .txtInput {
-position:absolute;
-z-index: -1;
-left:0px;
+position:absolute!important;
+z-index: -1!important;
+opacity: 0!important;
+left:0px!important;
 }
 `;
     if(!hideInputField) {
