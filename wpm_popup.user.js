@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         TR: WPM popup
+// @name         TR: Floating wpm
 // @namespace    http://tampermonkey.net/
-// @version      0.0.1
-// @description  Floating self WPM popup that follows the smooth caret vertically. For use with Smooth Caret's "hide input field" setting in long texts
+// @version      0.0.2
+// @description  Floating WPM popup that follows the smooth caret vertically. For use with Smooth Caret's "hide input field" setting in long texts
 // @author       poem#3305
 // @match        https://play.typeracer.com/*
 // @match        https://staging.typeracer.com/*
@@ -13,7 +13,7 @@
 const RANKPANEL_CLASS = 'rankPanelWpm rankPanelWpm-self';
 const ELEMENT_CONFIG = { subtree: false, childList: true };
 const DATA_LABEL = 'floatingWPM';
-const DEBUG = true;
+const DEBUG = false;
 
 document.body.insertAdjacentHTML("beforeend",`<style>
 #floating_wpm {
@@ -82,7 +82,7 @@ function dragElement(element)
     }
 }
 
-// Read and write latest element position
+// Read and write latest countdown position
 function storeFormat(element) {
     let top = element.style.top;
     let left = element.style.left;
@@ -111,9 +111,10 @@ function updateWPM() {
     if(rankPanels.length==0)
         return;
     let rankPanel=rankPanels[0];
-    log(rankPanel.innerHTML);
     floating_element.innerText=rankPanel.innerText;
     let caret=document.getElementById('caret');
+    if(caret==null)
+        return;
     floating_element.style.top=(parseFloat(caret.style.top)-35).toString()+'px';
 }
 setInterval(updateWPM,100);
