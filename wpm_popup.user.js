@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         TR: Floating wpm
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
-// @description  Floating WPM popup that follows the smooth caret vertically. For use with Smooth Caret's "hide input field" setting in long texts
+// @version      0.0.3
+// @description  For use with Smooth Caret. Floating WPM popup that follows the smooth caret
 // @author       poem#3305
 // @match        https://play.typeracer.com/*
 // @match        https://staging.typeracer.com/*
@@ -10,10 +10,15 @@
 // @noframes
 // ==/UserScript==
 
+const fullFollow=true; //if this is set to true, the popup will follow the smooth caret horizontally as well as vertically.
+//otherwise, it will follow it vertically, and you can drag and drop horizontally.
+
+
 const RANKPANEL_CLASS = 'rankPanelWpm rankPanelWpm-self';
 const ELEMENT_CONFIG = { subtree: false, childList: true };
-const DATA_LABEL = 'floatingWPM';
+const DATA_LABEL = 'floatingWPM2';
 const DEBUG = false;
+let lagTime=500;
 
 document.body.insertAdjacentHTML("beforeend",`<style>
 #floating_wpm {
@@ -28,6 +33,7 @@ font-weight: bold;
 border-radius: 10px;
 padding: 10px;
 opacity: 0.8;
+transition: `+lagTime+`ms ease-out;
 }
 </style>
 `);
@@ -37,6 +43,7 @@ let floating_element=document.getElementById('floating_wpm');
 restoreFormat(floating_element);
 dragElement(floating_element);
 floating_element.innerText='test';
+floating_element.style.visibility='hidden';
 
 
 function log(msg){
@@ -110,11 +117,39 @@ function updateWPM() {
     let rankPanels=document.getElementsByClassName(RANKPANEL_CLASS);
     if(rankPanels.length==0)
         return;
+    else if(floating_element.style.visibility=='hidden')
+        floating_element.style.visibility='visible';
     let rankPanel=rankPanels[0];
     floating_element.innerText=rankPanel.innerText;
     let caret=document.getElementById('caret');
     if(caret==null)
         return;
-    floating_element.style.top=(parseFloat(caret.style.top)-35).toString()+'px';
+    let top_pos=parseFloat(floating_element.style.top);
+    let new_top_pos=parseFloat(caret.style.top)-35-50;
+
+    if(Math.abs(new_top_pos-top_pos)>200) {
+            floating_element.style.transition='0s ease-out';
+            floating_element.style.top=new_top_pos+'px';
+            setTimeout(function(){floating_element.style.transition=lagTime+'ms ease-out';},100);
+            log('moving popup far, cancelled animation');
+        }
+        else {
+            floating_element.style.top=new_top_pos+'px';
+        }
+
+    floating_element.style.top=(parseFloat(caret.style.top)-35-50).toString()+'px';
+    let left_pos=parseFloat(floating_element.style.left);
+    let new_left_pos=parseFloat(caret.style.left)-40;
+    if(fullFollow) {
+        if(new_left_pos<left_pos) {
+            floating_element.style.transition='0s ease-out';
+            floating_element.style.left=new_left_pos+'px';
+            setTimeout(function(){floating_element.style.transition=lagTime+'ms ease-out';},100);
+            log('line break');
+        }
+        else {
+            floating_element.style.left=new_left_pos+'px';
+        }
+    }
 }
 setInterval(updateWPM,100);
