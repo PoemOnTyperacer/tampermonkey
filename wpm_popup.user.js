@@ -10,9 +10,7 @@
 // @noframes
 // ==/UserScript==
 
-const fullFollow=true; //if this is set to true, the popup will follow the smooth caret horizontally as well as vertically.
-//otherwise, it will follow it vertically, and you can drag and drop horizontally.
-
+const fullFollow=true;
 
 const RANKPANEL_CLASS = 'rankPanelWpm rankPanelWpm-self';
 const ELEMENT_CONFIG = { subtree: false, childList: true };
