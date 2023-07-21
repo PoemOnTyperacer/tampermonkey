@@ -1,14 +1,13 @@
 // ==UserScript==
 // @name         Keymash: Average speed
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      0.0.3
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/km_average_speed.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/km_average_speed.user.js
 // @description  Display users' last X races average on Keymash profiles
 // @author       poem#3305
 // @match        https://keymash.io/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=keymash.io
-// @grant        GM_addStyle
 // @noframes
 // ==/UserScript==
 
@@ -25,8 +24,9 @@ const DEBUG=false;
 
 function log(msg){
     if(DEBUG)
-        console.log(("%c[KM Average Speed] "+msg),"color:#CCCC00;");
+        console.log(("%c[KM Average Speed] "+msg),"color:#fb923c;");
 }
+
 /*---------Detect navigation to a profile page and trigger script---------*/
 let viewingProfile=false;
 let username=null;
@@ -109,7 +109,7 @@ function main() {
     log('output = '+output);
     const CONTAINER=USER_TAG.parentNode.parentNode;
     newTag=document.createElement('div');
-    newTag.innerHTML=processAverage(wpmCellValues)+'<span class="text-gray-500">'+output_details+'</span>';
+    newTag.innerHTML=output+'<span class="text-gray-500">'+output_details+'</span>';
     newTag.className='truncate font-semibold text-white';
     CONTAINER.insertBefore(newTag,CONTAINER.firstChild.nextSibling);
 
@@ -120,7 +120,7 @@ function main() {
 
 
 function processAverage(values) {
-    console.log(values);
+    log('all values= '+values);
     let total=0;
     let effective_span=SPAN;
     for(let i=0;i<SPAN;i++) {
