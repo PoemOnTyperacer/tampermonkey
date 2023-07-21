@@ -3,7 +3,7 @@
     <img src="https://play.typeracer.com/images/tr-loader.gif" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">Tampermonkey extensions for use with Typeracer and Monkeytype</h3>
+  <h3 align="center">Tampermonkey extensions for use with Typeracer, Monkeytype and Keymash</h3>
 
   <p align="center">
     By poem#3305
