@@ -61,6 +61,7 @@ function URLClock() {
     }
 }
 setInterval(URLClock,1500);
+URLClock();
 
 /*---------Read, calculate and display average on a profile page---------*/
 const QUIT_VALUE='N/A';
