@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Keymash: Average speed
 // @namespace    http://tampermonkey.net/
-// @version      0.0.4
+// @version      0.0.5
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/km_average_speed.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/km_average_speed.user.js
 // @description  Display users' last X races average on Keymash profiles
@@ -131,18 +131,16 @@ function processAverage(values) {
         }
         let singleValue=values[i];
         if(singleValue==QUIT_VALUE) {
-            if(PUNISH) //strike them down with the might of Zeus
-                singleValue=0;
-            else {
-                quit_count++
-                continue;
-            }
+            quit_count++;
+            continue;
         }
         else
             singleValue=parseFloat(singleValue.split(VALUE_APPENDIX)[0]);
         total+=singleValue;
     }
-    effective_span=effective_span-quit_count;
+    log('number of races being averaged out = '+effective_span+', of which number of quits = '+quit_count);
+    if(!PUNISH) //strike them down with the might of Zeus
+        effective_span=effective_span-quit_count;
     if(effective_span==0) //if all races were quit
         return QUIT_VALUE;
     else {
