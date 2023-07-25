@@ -28,40 +28,74 @@ function log(msg) {
 }
 
 /*---------Detect navigation to a profile page and trigger script---------*/
-let viewingProfile = false;
+let viewingProfile = window.location.href.startsWith("https://keymash.io/profile");
 let username = null;
 let newTag;
-const PROFILE_URL_REGEX = /.*keymash.io\/profile\/(.+)\/.*/;
-function URLClock() {
-  let url = window.location.href;
-  let match = PROFILE_URL_REGEX.exec(url);
-  if (match == null) {
-    if (viewingProfile) {
-      log('No longer viewing profile');
-      viewingProfile = false;
+// const PROFILE_URL_REGEX = /.*keymash.io\/profile\/(.+)\/.*/;
+// function URLClock() {
+//   let url = window.location.href;
+//   let match = PROFILE_URL_REGEX.exec(url);
+//   if (match == null) {
+//     if (viewingProfile) {
+//       log('No longer viewing profile');
+//       viewingProfile = false;
+//     }
+//   }
+//   else {
+//     if (!viewingProfile) {
+//       username = match[1];
+//       log('Now viewing profile: ' + username + '; starting main function');
+//       viewingProfile = true;
+//       setTimeout(main, 1500);
+//     }
+//     else {
+//       if (username == match[1]) //already viewing same profile
+//         return;
+//       else { //viewing new profile
+//         username = match[1];
+//         log('Now viewing new profile: ' + username + '; starting main function');
+//         newTag.remove();
+//         setTimeout(main, 1500);
+//       }
+//     }
+//   }
+// }
+// setInterval(URLClock, 1500);
+// URLClock();
+
+(function() {
+  let profileAverage = function() {
+    if (window.location.href.startsWith("https://keymash.io/profile")) {
+      let h = new XMLHttpRequest();
+      h.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+          let races = JSON.parse(h.responseText)
+          console.log(races.data)
+          races = races.data
+          let wpm = 0
+          for (let i = 0; i < races.length; i++) {
+            wpm += races.placement == 0 ? 0 : races[i].wpm
+          }
+          console.log(wpm / 20)
+        }
+      };
+      h.open("GET", `https://api.keymash.io/api/v2/player/matches?limit=20&startNum=0`, true);
+      h.send();
     }
   }
-  else {
-    if (!viewingProfile) {
-      username = match[1];
-      log('Now viewing profile: ' + username + '; starting main function');
-      viewingProfile = true;
-      setTimeout(main, 1500);
-    }
-    else {
-      if (username == match[1]) //already viewing same profile
-        return;
-      else { //viewing new profile
-        username = match[1];
-        log('Now viewing new profile: ' + username + '; starting main function');
-        newTag.remove();
-        setTimeout(main, 1500);
+  window.onload = () => {
+    let oldHref = document.location.href;
+    const body = document.querySelector("body");
+    const observer = new MutationObserver(mutations => {
+      if (oldHref !== document.location.href) {
+        oldHref = document.location.href;
+        profileAverage()
       }
-    }
-  }
-}
-setInterval(URLClock, 1500);
-URLClock();
+    });
+    observer.observe(body, { childList: true, subtree: true });
+  };
+  profileAverage()
+})();
 
 /*---------Read, calculate and display average on a profile page---------*/
 const QUIT_VALUE = 'N/A';
