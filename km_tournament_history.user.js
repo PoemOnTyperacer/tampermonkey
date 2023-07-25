@@ -3,8 +3,8 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.1
 // @description  See the last 20 races in keymash tournaments
-// @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/keymash/km_tournament_history.user.js
-// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/keymash/km_tournament_history.user.js
+// @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/km_tournament_history.user.js
+// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/km_tournament_history.user.js
 // @author       nullchilly
 // @match        https://keymash.io/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=keymash.io
