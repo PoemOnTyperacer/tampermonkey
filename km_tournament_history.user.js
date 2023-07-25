@@ -75,7 +75,7 @@ function waitForElm(selector) {
                   // localStorage.setItem('keymashMatchesHistory', JSON.stringify(matchesHistory))
                   let newMatch = matches.lastChild.cloneNode(true)
                   // console.log(race)
-                  newMatch.children[0].innerHTML = race.finished ? i : "QUIT"
+                  newMatch.children[0].innerHTML = race.finished ? i + 1 : "QUIT"
                   newMatch.children[1].innerHTML = "Keymasters 2023"
                   newMatch.children[2].innerHTML = `${race.exp} EXP`
                   newMatch.children[3].innerHTML = `${race.accuracy}%`
@@ -109,7 +109,7 @@ function waitForElm(selector) {
       if (!viewProfile && typeof (response.matchId) == 'string' && response.matchId != preMatchId) {
         if (response.tournamentId == "keymasters-2023") {
           let matchesHistory = JSON.parse(localStorage.getItem('keymashMatchesHistory')) || []
-          if (matchesHistory.length >= 21) {
+          if (matchesHistory.length >= 20) {
             matchesHistory.shift()
           }
           matchesHistory.push(response.matchId)
