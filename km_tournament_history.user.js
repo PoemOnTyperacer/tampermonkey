@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Keymash tournament history
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  See the last 20 races in keymash tournaments
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/km_tournament_history.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/km_tournament_history.user.js
