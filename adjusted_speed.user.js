@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.6.6
+// @version      1.7.0
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
+// @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
 // @author       poem & ph0t0shop
+// @icon         https://www.google.com/s2/favicons?domain=typeracer.com
 // @match        https://data.typeracer.com/pit/text_info*
 // @match        https://data.typeracer.com/pit/result*
 // @match        https://play.typeracer.com/*
@@ -16,14 +18,21 @@
 // @noframes
 // ==/UserScript==
 
+
 /*=========SETTINGS=============*/
 const SHOW_DESSLEJUSTED = false;
+const DEBUG=false;
 /*==============================*/
 
 // What is the difficulty metric? http://bit.ly/typeracertextdifficulty
 
 if (window.top != window.self) { // skip IFrame stuff
     return;
+}
+
+function log(msg, color='#008000') {
+    if(DEBUG)
+        console.log('%c [Adjusted speed] '+msg, 'color: '+color);
 }
 
 let status = {
@@ -138,7 +147,7 @@ function repairLog(log_contents,isNew=false) {
             log_contents = log_contents.removeAt(x);
             if(isNew) {
                 //window.alert('Found corrupted char at i='+x+' in log: '+log_contents);
-                console.log('window.alert : Found corrupted char at i='+x+' in log: '+log_contents);
+                log('window.alert : Found corrupted char at i='+x+' in log: '+log_contents);
             }
         }
         x++;
@@ -211,7 +220,7 @@ function navigateLogTo(index) { // assumption: replay window exists
     }
 
     if (increm == max_increm) {
-        console.log('[log navigator] error : log navigator reached max increment');
+        log('[log navigator] error : log navigator reached max increment');
         let maxAdjButton = document.getElementById('maxAdjButton');
         maxAdjButton.style.display = 'none';
     }
@@ -224,7 +233,7 @@ function eugeneIsSmart(new_log_contents) {
     let matches = findAll(regex_stroke,new_log_contents);
     for(let i=0; i<matches.length; i++) {
         let keystroke = matches[i];
-        //console.log('typeof keystroke: '+typeof keystroke+'; keystroke: '+keystroke+'; len: '+keystroke.length);
+        //log('typeof keystroke: '+typeof keystroke+'; keystroke: '+keystroke+'; len: '+keystroke.length);
         let chars = findAll(regex_char,keystroke);
         let delay = parseInt(keystroke.split(',')[0])
         if(chars[0][chars[0].length-2]=='$') {
@@ -242,7 +251,7 @@ function eugeneIsSmart(new_log_contents) {
             }
         }
     }
-    //console.log('actions: '+actions);
+    //log('actions: '+actions);
 
     let tot_time=0;
     let raw_times=[]
@@ -265,14 +274,18 @@ function eugeneIsSmart(new_log_contents) {
 (async () => {
     // AFTER-RACE ADJUSTED
     if (!status.url.startsWith('https://data.typeracer.com/')) {
-        XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
+        //ensure compabitility with Pace Caret
+        if (!XMLHttpRequest.prototype.oldSend2) {
+            XMLHttpRequest.prototype.oldSend2 = XMLHttpRequest.prototype.send;
+        }
 
-        XMLHttpRequest.prototype.send = function (body) { // intercept XMLHttpRequests which contain data we need
+        // intercept XMLHttpRequests which contain data we need
+        XMLHttpRequest.prototype.send = function (body) {
             if (body) {
                 const splitBody = body.split("|");
                 const endpoint = splitBody[6];
                 const payload = splitBody[13];
-                console.log('endpoint='+endpoint+' ; logPayload='+payload+' ; body='+body.toString());
+                log('endpoint='+endpoint+' ; logPayload='+payload+' ; body='+body.toString());
 
                 const join_game_endpoints = ["joinStandaloneGame", "joinSinglePlayerGame", "joinSameReplayGame", "joinRecordedReplayGame", "joinInstantReplayGame"];
                 const join_room_endpoints = ["createAndJoinCustomRoom","joinRoom"]
@@ -288,14 +301,14 @@ function eugeneIsSmart(new_log_contents) {
                     this.addEventListener("load", function() {
                         try {
                         const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
-                            console.log("Typing log response JSON: " + responseJSON.toString());
-                            console.log('21='+responseJSON[21]+', 27='+responseJSON[27]+', 33='+responseJSON[33]+', 39='+responseJSON[39]+', 45='+responseJSON[45]+', 51='+responseJSON[51]+'; total length ='+responseJSON.length.toString());
+                            log("Typing log response JSON: " + responseJSON.toString());
+                            log('21='+responseJSON[21]+', 27='+responseJSON[27]+', 33='+responseJSON[33]+', 39='+responseJSON[39]+', 45='+responseJSON[45]+', 51='+responseJSON[51]+'; total length ='+responseJSON.length.toString());
                         let resp_len = responseJSON.length;
                         let registered_speed = responseJSON[resp_len-19];
                             let id = responseJSON[resp_len-17];
                         let points = responseJSON[resp_len-15];
                         let accuracy = responseJSON[resp_len-10];
-                        console.log('registered speed='+registered_speed+'; points='+points+'; accuracy='+accuracy+'; id='+id);
+                        log('registered speed='+registered_speed+'; points='+points+'; accuracy='+accuracy+'; id='+id);
                             window.localStorage.setItem('latestRegisteredSpeed', registered_speed);
                         window.localStorage.setItem('latestPoints', points);
                             window.localStorage.setItem('latestId', id);
@@ -303,7 +316,7 @@ function eugeneIsSmart(new_log_contents) {
                         }
                         catch(error){
                             //window.alert("error while getting response: "+error);
-                            console.log("window.alert : error while getting response: "+error+'\nResponse text: '+this.responseText);
+                            log("window.alert : error while getting response: "+error+'\nResponse text: '+this.responseText);
                         }
                     });
                 } else if (navigation_endpoints.includes(endpoint)) { //update navigation status
@@ -316,15 +329,15 @@ function eugeneIsSmart(new_log_contents) {
                         new_status="ghost";
                     else if(endpoint==="joinSameReplayGame")
                         new_status="SameReplayGame";
-                    console.log("new_status="+new_status);
+                    log("new_status="+new_status);
 
                     /*this.addEventListener("load", function() {
                         const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
-                        console.log("Text ID: " + responseJSON[12]);
+                        log("Text ID: " + responseJSON[12]);
                     });*/
                 }
             }
-            return this.oldSend(body);
+            return XMLHttpRequest.prototype.oldSend2.call(this, body);
         }
 
         function logToSpeeds(log_contents,new_log_contents,registered_speed) {
@@ -337,7 +350,7 @@ function eugeneIsSmart(new_log_contents) {
 
 
             let [tot_time,correction_time,raw_time] = eugeneIsSmart(new_log_contents);
-            console.log('Total time: '+tot_time+'; correction time: '+correction_time+'; raw time: '+raw_time);
+            log('Total time: '+tot_time+'; correction time: '+correction_time+'; raw time: '+raw_time);
 
 
             //     The contents of the quote don't matter, so long as we don't lose the quote length information.
@@ -346,8 +359,8 @@ function eugeneIsSmart(new_log_contents) {
             log_contents = log_contents.replace(/(\\u....)/g, 'S'); //special characters
             log_contents = log_contents.replace(/(\\)\D/g, 'E'); //excepted characters
 
-            console.log('repaired and simplified log: '+log_contents);
-            console.log('repaired new log: '+new_log_contents);
+            log('repaired and simplified log: '+log_contents);
+            log('repaired new log: '+new_log_contents);
 
             log_contents = log_contents.replace(/^./, '');
             let start = parseInt(/(\d*)?/.exec(log_contents)[1]);
@@ -385,17 +398,17 @@ function eugeneIsSmart(new_log_contents) {
 
             let lagged_time = Math.round(12000 * quote_length/registered_speed);
             let ping = lagged_time-total_time;
-            console.log('lagged time = '+lagged_time+' ms; ping = '+ping+' ms');
+            log('lagged time = '+lagged_time+' ms; ping = '+ping+' ms');
             let verif = tot_time-total_time;
             if(verif!=0) {
                 //window.alert('verif; tot_time-total_time = '+(tot_time-total_time).toString());
-                console.log('window.alert: verif; tot_time-total_time = '+(tot_time-total_time).toString());
+                log('window.alert: verif; tot_time-total_time = '+(tot_time-total_time).toString());
             }
             let raw_speed = 12000 * quote_length / raw_time;
             let raw_desslejusted_speed = 12000 * quote_length / (raw_time - start);
             let raw_adjusted_speed = 12000 * (quote_length - 1) / (raw_time - start);
             let correction_ratio = correction_time / tot_time;
-            console.log('raw speed: '+raw_speed+'; raw adjusted speed: '+raw_adjusted_speed+'; raw desslejusted speed: '+raw_desslejusted_speed+'; correction ratio: '+correction_ratio);
+            log('raw speed: '+raw_speed+'; raw adjusted speed: '+raw_adjusted_speed+'; raw desslejusted speed: '+raw_desslejusted_speed+'; correction ratio: '+correction_ratio);
             let unlagged_speed = 12000 * quote_length / total_time;
             let adjusted_speed = 12000 * (quote_length - 1) / (total_time - start);
             let lagged_speed_str = (((document.getElementsByClassName('tblOwnStatsNumber') || [])[0] || {}).innerText || ' wpm').split(' wpm')[0];
@@ -412,9 +425,9 @@ function eugeneIsSmart(new_log_contents) {
             status.delays = delays;
             status.maximumAdjustedIndex = maxAdj[0];
             status.maximumAdjustedValue = maxAdj[1].toFixed(3);
-            //console.log('delays: '+delays);
-            //     console.log('partial adjusteds: '+partialAdjusteds);
-            //console.log('max adj: '+maxAdj);
+            //log('delays: '+delays);
+            //     log('partial adjusteds: '+partialAdjusteds);
+            //log('max adj: '+maxAdj);
 
             let data = {
                 unlagged: unlagged_speed,
@@ -442,14 +455,14 @@ function eugeneIsSmart(new_log_contents) {
 
                 if(!status.isGuest) {
                     status.isGuest=true;
-                    console.log('logged out as guest')
+                    log('logged out as guest')
                 }
             }
 
             else {
                 if(status.isGuest) {
                     status.isGuest=false;
-                    console.log('logged in');
+                    log('logged in');
                 }
             }
             }
@@ -458,20 +471,20 @@ function eugeneIsSmart(new_log_contents) {
             if (roomTitle == "Practice Racetrack") {
                 if (ghost_warning.includes('You are racing against')) {
                     if (status.room != 'ghost') {
-                        console.log('new GUI status=ghost');
+                        log('new GUI status=ghost');
                         status.room = 'ghost';
                     }
                 }
                 else {
                     if (status.room != 'practice') {
-                        console.log('new GUI status=practice');
+                        log('new GUI status=practice');
                         status.room = 'practice';
                     }
                 }
             }
             else if (gameStatus != '') {
                 if (status.room != 'public') {
-                    console.log('new GUI status=public');
+                    log('new GUI status=public');
                     status.room = 'public';
                 }
             }
@@ -479,26 +492,26 @@ function eugeneIsSmart(new_log_contents) {
                 if (status.room != 'other') {
                     status.room = 'other';
                     status.race = 'none';
-                    console.log('new GUI status=other\nGUI race=none');
+                    log('new GUI status=other\nGUI race=none');
                 }
             }
             if (status.room != 'other') {
                 if (gameStatus == 'The race is about to start!') {
                     if (status.race != 'waiting') {
-                        console.log('GUI race=waiting');
+                        log('GUI race=waiting');
                         status.race = 'waiting';
                     }
                 }
                 else if (gameStatus == 'Go!' || gameStatus.startsWith('The race is on')) {
                     status.reverseLag = false;
                     if (status.race != 'racing') {
-                        console.log('GUI race=racing');
+                        log('GUI race=racing');
                         status.race = 'racing';
                     }
                 }
                 else if (gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')) {
                     if (status.race != 'finished') {
-                        console.log('GUI race=finished');
+                        log('GUI race=finished');
                         status.race = 'finished';
                         if(!status.isGuest)
                             getPracticeRaceData();
@@ -523,11 +536,11 @@ function eugeneIsSmart(new_log_contents) {
 
         async function showPracticeRaceData(speeds,registered_speed,accuracy,points,id) {
             if(status.isGuest) {
-                console.log("This script doesn't support guests racers at the moment. Cancelling additional metrics");
+                log("This script doesn't support guests racers at the moment. Cancelling additional metrics");
                 return;
             }
             if(id==8&&accuracy==3) {
-                console.log("Current race is a SameReplayGame, which this script doesn't support at the moment. Cancelling additional metrics");
+                log("Current race is a SameReplayGame, which this script doesn't support at the moment. Cancelling additional metrics");
                 return;
             }
             const DEC_PLACES=2;
@@ -548,7 +561,7 @@ function eugeneIsSmart(new_log_contents) {
             let oldAccuracyResult = (Math.round(accuracy*Math.pow(10,DEC_PLACES+2))/100).toString()+' %';
             /*if(accuracy>1) {
                 window.alert('Wrong accuracy endpoint (got '+(parseFloat(accuracy)*100).toFixed(DEC_PLACES)+' % value)');
-                console.log('window.alert: Wrong accuracy endpoint (got '+(parseFloat(accuracy)*100).toFixed(DEC_PLACES)+' % value)');
+                log('window.alert: Wrong accuracy endpoint (got '+(parseFloat(accuracy)*100).toFixed(DEC_PLACES)+' % value)');
                 oldAccuracyResult='Error';
             }*/
 
@@ -559,11 +572,11 @@ function eugeneIsSmart(new_log_contents) {
             while(accuracyTag==undefined&&loadTick<30) {
                 await sleep(200);
                 loadTick++;
-                console.log("showPracticeRaceData: waited for accuracy tag for 1 tick");
+                log("showPracticeRaceData: waited for accuracy tag for 1 tick");
                 accuracyTag = document.getElementsByClassName('tblOwnStatsNumber')[2];
             }
             if(loadTick==30){
-                console.log("showPracticeRaceData error: accuracy tag timed out");
+                log("showPracticeRaceData error: accuracy tag timed out");
                 return;
             }
             
@@ -574,7 +587,7 @@ function eugeneIsSmart(new_log_contents) {
             if(displayed_accuracy!=rounded_accuracy) {
                 let alert_msg = 'Wrong accuracy endpoint (got '+(parseFloat(accuracy)*100).toFixed(DEC_PLACES)+' % value instead of '+displayed_accuracy.toString()+'%)';
                 //window.alert(alert_msg);
-                console.log(alert_msg);
+                log(alert_msg);
                 oldAccuracyResult='Error';
 
 
@@ -619,14 +632,14 @@ function eugeneIsSmart(new_log_contents) {
             let difficultyLine=null;
                 try {
                     let relative_average = await getLatestDifficulty(id); // TODO: try/catch
-                    //                     console.log("relative average: "+relative_average);
+                    //                     log("relative average: "+relative_average);
                     let [difficulty, delta_diff] = relativeAverageToDifficulty(relative_average);
-                    console.log('DIFF='+difficulty+'; DELTA_DIFF='+delta_diff);
+                    log('DIFF='+difficulty+'; DELTA_DIFF='+delta_diff);
                     difficultyLine = getElementFromString('tr', '<td>Difficulty:</td><td><div class="difficultyDisplay tblOwnStatsNumber" style=""><span class="difficulty">' + difficulty +' ('+delta_diff+')</span></div></td>');
                     insertAfter(difficultyLine,pointsTag.parentNode.parentNode.parentNode);
                 }
                 catch(e) {
-                    console.log(e);
+                    log(e);
                 }
 
 
@@ -675,7 +688,7 @@ function eugeneIsSmart(new_log_contents) {
         document.querySelector('.avgStatsTable > tbody').appendChild(difficultyLine);
         }
         catch(e) {
-            console.log(e);
+            log(e);
         }
     }
 
@@ -693,12 +706,12 @@ function eugeneIsSmart(new_log_contents) {
         let log_contents = typingLog.substring(0, typingLog.indexOf('|'))
         log_contents = log_contents.substringAfterNth(',', 3);
         log_contents = repairLog(log_contents)
-        console.log(log_contents);
+        log(log_contents);
 
         let new_log_contents = repairLog(typingLog.substringAfterNth('|',1),true);
-        console.log('NEW LOG BUILD - '+new_log_contents);
+        log('NEW LOG BUILD - '+new_log_contents);
         let [tot_time,correction_time,raw_time] = eugeneIsSmart(new_log_contents);
-        console.log('Total time: '+tot_time+'; correction time: '+correction_time+'; raw time: '+raw_time);
+        log('Total time: '+tot_time+'; correction time: '+correction_time+'; raw time: '+raw_time);
 
         // log_contents = 'D268o270n161\'240t79 64m113a62k98e79 49a96s143s143u82m223p401t256i80o160n143s65 96-448 303f191i81n159d3 77t98h294e42 46c113o31u146r31a97g128e191 49t128o35 107a49s111k97 128q112u113e78s210t159i64o128n161s79 81a79n111d65 81e240t479o64 128e112x208p97r110e178s159s145 62w80h98a80t111 79y97o31u177 65r64e191a95l98l95y63 80w145a81n88t86.160 96C193o191m161m113u176n158i146c224a94t202e184 79w64i66t93h192 81o576t84h172e176r160s176 80a47s179 94c241l63e127a96r112l464;2y48l672y62 98a207y928 96a208s112 80y175o66u143 48c31a112n65 112t81o94t1026o48 143a80v145o78i145d160 81m127i193s287u207n161d112e113r128s191t177a111n97d110i129n145g95s193,111 239s161a113d807n113e128s175s129 65a63n95d97 63d113r160e241a110a546m62a97.160 208W160i193t94h194 48t127h176i112j1377u160s48t160 63t113h159i64s161 47o96n145e80 47a63g161g145r216e167r1329e143e177m367e111n97t112,897 351y1184o48u159 82c79a79n161 159c225o97m159p207l128e98t110e113l512y111 225t143r337a208n96s127f273o111r112m81 97y79o64u128r65 48l62i146f48e47.96';
         //     Parsing the log to access partial adjusted speeds
@@ -742,14 +755,14 @@ function eugeneIsSmart(new_log_contents) {
         let desslejusted = 12000 * ((quote_length) / (total_time - start))
         partialAdjusteds.push(adjusted_speed);
 
-        console.log('Partial Adjusted speeds: ' + partialAdjusteds);
+        log('Partial Adjusted speeds: ' + partialAdjusteds);
 
 
         let raw_speed = 12000 * quote_length / raw_time;
         let raw_desslejusted_speed = 12000 * quote_length / (raw_time - start);
         let raw_adjusted_speed = 12000 * (quote_length - 1) / (raw_time - start);
         let correction_ratio = correction_time / tot_time;
-        console.log('raw speed: '+raw_speed+'; raw adjusted speed: '+raw_adjusted_speed+'; raw desslejusted speed: '+raw_desslejusted_speed+'; correction ratio: '+correction_ratio);
+        log('raw speed: '+raw_speed+'; raw adjusted speed: '+raw_adjusted_speed+'; raw desslejusted speed: '+raw_desslejusted_speed+'; correction ratio: '+correction_ratio);
 
 
         status.latestPartialAdjusteds = partialAdjusteds;
@@ -780,17 +793,17 @@ function eugeneIsSmart(new_log_contents) {
 
         // Fetch race data from timespan API (exact lagged speed, points)
         let race_data_url = 'https://data.typeracer.com/games?playerId=tr:' + player_name + '&universe=' + race_universe + '&startDate=' + unix_start + '&endDate=' + unix_end;
-        console.log('2-second-range timespan API url for this race: ' + race_data_url);
+        log('2-second-range timespan API url for this race: ' + race_data_url);
 
         let response;
         try {
             response = await fetch(race_data_url);
         } catch (err) {
-            console.log("[D.TR-P] error: " + err);
+            log("[D.TR-P] error: " + err);
             return;
         }
         if (response.status !== 200) {
-            console.log("[D.TR-P] received non-200 status code when requesting data");
+            log("[D.TR-P] received non-200 status code when requesting data");
             return;
         }
 
@@ -798,7 +811,7 @@ function eugeneIsSmart(new_log_contents) {
         const raceData = data.find(race => race.gn == race_number);
 
         if (!raceData) {
-            console.log("[D.TR-P] couldn't find race data");
+            log("[D.TR-P] couldn't find race data");
             return;
         }
 
@@ -851,14 +864,14 @@ function eugeneIsSmart(new_log_contents) {
 
         try {
         let relative_average = await getLatestDifficulty(text_id); // TODO: try/catch
-        //                     console.log("relative average: "+relative_average);
+        //                     log("relative average: "+relative_average);
         let [difficulty, delta_diff] = relativeAverageToDifficulty(relative_average);
             let avgDifficultyRow = document.createElement("tr");
         avgDifficultyRow.innerHTML = '<td>Difficulty</td><td>' + difficulty + '</td><td>('+delta_diff+')</td>';
         document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
         }
         catch(e) {
-            console.log(e);
+            log(e);
         }
 
         let ds_html = '';
@@ -919,7 +932,7 @@ function relativeAverageToDifficulty(str) {
             difficulty = 100;
         else if (difficulty < 0)
             difficulty = 0;
-        console.log('[relativeAverageToDifficulty] Warning: difficulty for this quote was out of bounds. Please update max and min relative average values with the latest on typeracerdata.');
+        log('[relativeAverageToDifficulty] Warning: difficulty for this quote was out of bounds. Please update max and min relative average values with the latest on typeracerdata.');
     }
 
     //     store the current average difficulty in the console, for comparing purposes
