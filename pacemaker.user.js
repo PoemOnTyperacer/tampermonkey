@@ -774,7 +774,7 @@ async function getTextData(id) {
     }
 }
 
-let displayHTML=`<tbody><tr><td><span'>Text ID:</span></td><td><span style='padding: 0 50px;' id='displayId'>loading...</span></td></tr><tr><td><span>Minimum pace:</span></td><td><span style='padding: 0 50px;' id='displayDefault'>`+targetPace+` WPM</span></td></tr><tr><td><span id='displayPb1'>Pb:</span></td><td><span style='padding-left: 50px;' id='displayPb2'></span><span id='displayDate'></span></td></tr><tr><td><span id='displayRank1'>#`+targetRank+`:</span></td><td><span style='padding: 0 50px;' id='displayRank2'>loading...</span></td></tr><tr><td><span style='font-weight:bold;'>Pace to beat:</span></td><td><span id='displayPace' style='padding: 0 50px; font-weight:bold;'>loading...</span></td></tr></tbody>`;
+let displayHTML=`<tbody><tr><td><span'>Text ID:</span></td><td><span style='padding-left: 50px;' id='displayId'>loading...</span></td></tr><tr><td><span>Minimum pace:</span></td><td><span style='padding-left: 50px;' id='displayDefault'>`+targetPace+` WPM</span></td></tr><tr><td><span id='displayPb1'>Pb:</span></td><td><span style='padding-left: 50px;' id='displayPb2'></span><span id='displayDate'></span></td></tr><tr><td><span id='displayRank1'>#`+targetRank+`:</span></td><td><span style='padding-left: 50px;' id='displayRank2'>loading...</span></td></tr><tr><td><span style='font-weight:bold;'>Pace to beat:</span></td><td><span id='displayPace' style='padding-left: 50px; font-weight:bold;'>loading...</span></td></tr></tbody>`;
 function makeDisplay() {
     let section=document.querySelector('.gameStatusLabel').parentNode;
     displayDiv = document.createElement('table');
