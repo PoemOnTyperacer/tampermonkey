@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -16,7 +16,6 @@
 // @connect      typeracerdata.com
 // @noframes
 // ==/UserScript==
-
 
 let DEBUG = false;
 let targetPace,targetRank,targetUsername,caretColor,showPb,showRank,showCaret,usePb,useRank,showId,showDefault,showFinal,showDate;
@@ -79,7 +78,7 @@ function config() {
             GM_setValue("useRank", useRank ? "1" : "0");
 
             log('[settings] saved data:\ntargetPace='+targetPace+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
-            document.getElementById("cfg_save").value = "SAVED! WOW!";
+            document.getElementById("cfg_save").value = "Saved!";
             clearTimeout(t);
             t = setTimeout(function() {
                 let wowsers=document.getElementById("cfg_save");
@@ -91,22 +90,22 @@ function config() {
         var div = document.createElement("div");
         div.style = "margin: auto; overflow-y: auto; max-height: 90%; width: fit-content; border-radius:5px; height: fit-content; border: 1px solid black; color:#ffffff; background: #000000; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8888888; line-height: 1;";
         div.innerHTML = "<b><br><center>Pacemaker Settings</center></b>"
-            + "<div style='margin: 20px;'><br><input id='targetPace' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Default pace in WPM (eg: 100)"
-            + "<div style='margin: auto;'><br><input id='targetUsername' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target username (eg: mako640; empty = account you're logged in)"
+            + "<div style='margin: 20px;'><br><input id='targetPace' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Minimum pace (WPM)"
+            + "<div style='margin: auto;'><br><input id='targetUsername' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target username (empty=current)"
             + "<div style='margin: auto;'><br><input id='targetRank' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target rank (eg: 10)"
-            + "<div style='margin: auto;'><br><input id='caretColor' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Pace caret color in r,g,b (eg. 255,0,0)"
-            + "<br><br><br><br></div><center><b>Display (show data about the text you're about to type):</b>"
+            + "<div style='margin: auto;'><br><input id='caretColor' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Caret color (r,g,b)"
+            + "<br><br><br><br></div><center><b>Show:</b>"
             + "<br><br><input id='showId' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Text ID</span>"
-            + "<br><br><input id='showDefault' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Default pace</span>"
-            + "<br><br><input id='showPb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Selected user's PB on this text</span>"
-            + "<br><br><input id='showDate' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Include PB date</span>"
-            + "<br><br><input id='showRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>WPM for selected rank on this text (eg. top 10)</span>"
+            + "<br><br><input id='showDefault' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Minimum pace</span>"
+            + "<br><br><input id='showPb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best</span>"
+            + "<br><br><input id='showDate' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best date</span>"
+            + "<br><br><input id='showRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Nth fastest (rank selected above)</span>"
             + "<br><br><input id='showFinal' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Pace to beat</span>"
-            + "<br><br><br><br></div><center><b>Pace caret (speed will be set to the fastest option selected):</b>"
-            + "<br><br><input id='showCaret' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Show pace caret</span>"
-            + "<br><br><input id='usePb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Selected user's PB on this text</span>"
-            + "<br><br><input id='useRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>WPM for selected rank on this text</span>"
-            + "<br><br><br><input id='cfg_save' type='button' value='Save configuration'  style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> <input id='cfg_close' type='button' value='Close'  style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'></center>";
+            + "<br><br><input id='showCaret' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Pace caret</span>"
+            + "<br><br><br><br></div><center><b>Set pace to the fastest of:</b>"
+            + "<br><br><input id='usePb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best</span>"
+            + "<br><br><input id='useRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Nth fastest</span>"
+            + "<br><br><br><input id='cfg_save' type='button' value='Save'  style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> <input id='cfg_close' type='button' value='Close'  style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'></center>";
         document.body.appendChild(div);
         load_settings();
         document.getElementById("targetPace").value = targetPace;
@@ -152,6 +151,7 @@ function load_settings() {
     log('[settings] loaded data:\ntargetPace='+targetPace+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
 }
 
+const DECIMAL_PLACES=0;
 let displayDiv;
 let menuOpen=false;
 let pbPace;
@@ -277,9 +277,10 @@ function createPCaret() {
 }
 #pCaretDisplay {
 background-color: rgba(0,0,0,0.7)!important;
-margin:5px;
+padding:10px;
 border-radius:5px;
 color: #ffffff!important;
+margin-bottom:10px;
 }
 </style>
 
@@ -526,7 +527,7 @@ function pickPace(forced=false){
     }
     pace=tempPace;
     if(showFinal)
-        document.querySelector('#displayPace').innerText='Pace to beat this race = '+pace+' WPM';
+        document.querySelector('#displayPace').innerText=pace.toFixed(DECIMAL_PLACES)+' WPM';
 }
 
 //WIP
@@ -629,6 +630,10 @@ async function endpoints() {
                             text_id=responseJSON[responseJSON.length-21];
                             log('[endpoints] (private track new race) text id='+text_id,'#D3D3D3');
                             await_updatePlayerProgress=false;
+                            makeDisplay();
+                            pbPace=null;
+                            rankPace=null;
+                            pickPace();
                             getTextData(text_id);
                         }
                     }
@@ -663,7 +668,7 @@ endpoints();
 async function getTextData(id) {
     log('[getdata] getting text data with id='+id,'#D3D3D3');
     if(showId)
-        document.querySelector('#displayId').innerText='Text #'+id;
+        document.querySelector('#displayId').innerText='#'+id;
 
     // top N data
     let text_leaderboard_url = 'https://typeracerdata.com/text?id='+id+'&rank_start='+targetRank+'&rank_end='+targetRank;
@@ -693,8 +698,10 @@ async function getTextData(id) {
         let username=usernameAndWPMMatch[1];
         let top_WPM=parseFloat(usernameAndWPMMatch[2]);
         log('[getdata] rank='+rank+'; username='+username+'; WPM='+top_WPM,'#D3D3D3');
-        if(showRank)
-            document.querySelector('#displayRank').innerText='#'+rank+' = '+top_WPM.toFixed(2)+' WPM by '+username;
+        if(showRank){
+            document.querySelector('#displayRank1').innerText='#'+rank+' ('+username+'):';
+            document.querySelector('#displayRank2').innerText=top_WPM.toFixed(DECIMAL_PLACES)+' WPM';
+        }
         rankPace=top_WPM;
         pickPace();
     }
@@ -704,8 +711,10 @@ async function getTextData(id) {
     if(targetUsername=='') {
         if(isGuest) {
             log('[getdata] no target user selected, not logged in = no PB data available','#ff0000');
-            if(showPb)
-                document.querySelector('#displayPb').innerText='Pb: no user selected';
+            if(showPb) {
+                document.querySelector('#displayPb1').innerText='Personal best:';
+                document.querySelector('#displayPb2').innerText='No user selected!';
+            }
             return;
         }
         else {
@@ -718,15 +727,6 @@ async function getTextData(id) {
     }
     let text_history_url = 'https://typeracerdata.com/text.races?text='+id+'&username='+tempUsername;
 
-    /*fetch(text_history_url)
-        .then(response => response.text())
-        .then(responseHTML => {
-        pbProcess(responseHTML);
-    })
-        .catch(error => {
-        console.error("[getdata] Error fetching data:", error);
-    });*/
-
     GM_xmlhttpRequest ( {
         method: 'GET',
         url: text_history_url,
@@ -735,14 +735,19 @@ async function getTextData(id) {
 			pbProcess(responseHTML);
         }
     });
+    function capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
     function pbProcess(responseHTML) {
         // log('[getdata] text history response text:\n'+responseHTML,'#D3D3D3');
         const emptyRegex=/(Sorry, that username has not yet completed any races on that text.)/;
         let emptyMatch=emptyRegex.exec(responseHTML);
         if(emptyMatch!=null) {
             log('[getdata] user '+tempUsername+' has not yet completed text ID='+id+'; setting pace to '+targetPace,'#ff0000');
-            if(showPb)
-                document.querySelector('#displayPb').innerText=tempUsername+' has not completed this text yet!';
+            if(showPb) {
+                document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername);
+                document.querySelector('#displayPb2').innerText="hasn't completed this text yet!";
+            }
             pbPace=targetPace;
             pace=targetPace;
             return;
@@ -759,16 +764,17 @@ async function getTextData(id) {
         let pb_WPM=parseFloat(dateAndWPMMatch[2]);
         log('[getdata] pb for username='+tempUsername+' set at date='+date+', WPM='+pb_WPM,'#D3D3D3');
         if(showPb) {
-            document.querySelector('#displayPb').innerText=tempUsername+"'s pb = "+pb_WPM+' WPM';
+            document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername)+"'s best:";
+            document.querySelector('#displayPb2').innerText=pb_WPM.toFixed(DECIMAL_PLACES)+' WPM';
             if(showDate)
-                document.querySelector('#displayDate').innerText=', achieved '+date;
+                document.querySelector('#displayDate').innerText=' ('+date+')';
         }
         pbPace=pb_WPM;
         pickPace();
     }
 }
 
-let displayHTML=`<tbody><tr><td><span id='displayId'>ID: loading...</span></td></tr><tr><td><span id='displayDefault'>Default pace = `+targetPace+` WPM</span></td></tr><tr><td><span id='displayPb'>Pb: loading...</span><span id='displayDate'></span></td></tr><tr><td><span id='displayRank'>Top 10: loading...</span></td></tr><tr><td><span id='displayPace' style='font-weight:bold;'>Pace to beat this race:</span></td></tr></tbody>`;
+let displayHTML=`<tbody><tr><td><span'>Text ID:</span></td><td><span style='padding: 0 50px;' id='displayId'>loading...</span></td></tr><tr><td><span>Minimum pace:</span></td><td><span style='padding: 0 50px;' id='displayDefault'>`+targetPace+` WPM</span></td></tr><tr><td><span id='displayPb1'>Pb:</span></td><td><span style='padding-left: 50px;' id='displayPb2'></span><span id='displayDate'></span></td></tr><tr><td><span id='displayRank1'>#`+targetRank+`:</span></td><td><span style='padding: 0 50px;' id='displayRank2'>loading...</span></td></tr><tr><td><span style='font-weight:bold;'>Pace to beat:</span></td><td><span id='displayPace' style='padding: 0 50px; font-weight:bold;'>loading...</span></td></tr></tbody>`;
 function makeDisplay() {
     let section=document.querySelector('.gameStatusLabel').parentNode;
     displayDiv = document.createElement('table');
