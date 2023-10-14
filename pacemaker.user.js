@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -193,35 +193,62 @@ function clock() {
         raceEnd();
     }
 
-    //Refresh username
     let current_username;
-    let loginButtons=document.getElementsByClassName('signIn');
+    //Refresh username
+    if(responsiveTheme) {
+        let loginButtons=document.getElementsByClassName('signIn');
 
-    if(loginButtons.length==0) {
-        let username_tag=document.getElementsByClassName('userNameLabel')[0];
-        if(!username_tag) //not done loading
-            return;
-        if(username_tag.parentNode.classList=='') { //wrong username tag
-            return;
+        if(loginButtons.length==0) {
+            let username_tag=document.getElementsByClassName('userNameLabel')[0];
+            if(!username_tag) //not done loading
+                return;
+            if(username_tag.parentNode.classList=='') { //wrong username tag
+                return;
+            }
+            if(isGuest||isGuest==null) {
+                isGuest=false;
+                log('logged in');
+            }
+            current_username=username_tag.innerText;
+            if(current_username.includes('('))
+                current_username=/.*\((.*)\)$/.exec(current_username)[1];
+            if(username!=current_username) {
+                log('username: '+current_username);
+                username=current_username;
+            }
         }
-        if(isGuest||isGuest==null) {
-            isGuest=false;
-            log('logged in');
-        }
-        current_username=username_tag.innerText;
-        if(current_username.includes('('))
-            current_username=/.*\((.*)\)$/.exec(current_username)[1];
-        if(username!=current_username) {
-            log('username: '+current_username);
-            username=current_username;
+        else {
+            if(isGuest)
+                return;
+            log('logged out');
+            username=null;
+            isGuest=true;
         }
     }
-    else {
-        if(isGuest)
+    else {//classic theme
+        let usernameLabel= document.querySelector('.mainUserInfoBox .userNameLabel');
+        if(!usernameLabel)// not done loading
             return;
-        log('logged out');
-        username=null;
-        isGuest=true;
+        if(usernameLabel.innerText=='Guest') {
+            if(isGuest)
+                return;
+            log('logged out');
+            username=null;
+            isGuest=true;
+        }
+        else {
+            if(isGuest||isGuest==null) {
+                isGuest=false;
+                log('logged in');
+            }
+            current_username=usernameLabel.innerText;
+            if(current_username.includes('('))
+                current_username=/.*\((.*)\)$/.exec(current_username)[1];
+            if(username!=current_username) {
+                log('username: '+current_username);
+                username=current_username;
+            }
+        }
     }
 }
 setInterval(clock, GUI_INTERVAL);
@@ -252,6 +279,7 @@ function createPCaret() {
 background-color: rgba(0,0,0,0.7)!important;
 margin:5px;
 border-radius:5px;
+color: #ffffff!important;
 }
 </style>
 
