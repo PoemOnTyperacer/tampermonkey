@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Smooth Caret
 // @namespace    http://tampermonkey.net/
-// @version      0.1.6
+// @version      0.1.7
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @description  Customizable, smooth caret for TypeRacer
