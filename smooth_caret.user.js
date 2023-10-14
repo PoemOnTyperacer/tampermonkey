@@ -209,10 +209,6 @@ top:-500%;
 .inputPanel > tbody > tr:nth-child(3) > td > table > tbody > tr {
 display:none;
 }
-.inputPanel > tbody > tr > td > table > tbody > tr > td > div > div {
-margin-top:1em !important;
-margin-bottom: 1em !important;
-}
 
 .inputPanel > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(1) > td > div > div > span {
     text-decoration: none;
