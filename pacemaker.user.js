@@ -84,7 +84,7 @@ function config() {
                 let wowsers=document.getElementById("cfg_save");
                 if(wowsers==null)
                     return;
-                wowsers.value = "Save configuration";
+                wowsers.value = "Save";
             },1500);
         }
         var div = document.createElement("div");
