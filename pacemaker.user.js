@@ -527,7 +527,7 @@ function pickPace(forced=false){
     }
     pace=tempPace;
     if(showFinal)
-        document.querySelector('#displayPace').innerText=pace.toFixed(DECIMAL_PLACES)+' WPM';
+        document.querySelector('#displayPace').innerText=parseFloat(pace).toFixed(DECIMAL_PLACES)+' WPM';
 }
 
 //WIP
