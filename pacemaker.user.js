@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -787,11 +787,14 @@ function makeDisplay() {
     if(!showDefault)
         document.querySelector('#displayDefault').parentNode.parentNode.remove();
     if(!showPb)
-        document.querySelector('#displayPb').parentNode.parentNode.remove();
+        document.querySelector('#displayPb1').parentNode.parentNode.remove();
     if(showPb&&!showDate)
         document.querySelector('#displayDate').remove();
     if(!showRank)
-        document.querySelector('#displayRank').parentNode.parentNode.remove();
+        document.querySelector('#displayRank1').parentNode.parentNode.remove();
     if(!showFinal)
         document.querySelector('#displayPace').parentNode.parentNode.remove();
+    if(!showId&&!showDefault&&!showPb&&!showRank&&!showFinal) {
+        displayDiv.remove();
+    }
 }
