@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -736,6 +736,9 @@ async function getTextData(id) {
         }
     });
     function capitalizeFirstLetter(string) {
+        if(string=='ginoo75') {
+            return string;
+        }
         return string.charAt(0).toUpperCase() + string.slice(1);
     }
     function pbProcess(responseHTML) {
