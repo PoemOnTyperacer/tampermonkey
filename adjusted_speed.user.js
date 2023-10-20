@@ -21,7 +21,7 @@
 
 /*=========SETTINGS=============*/
 const SHOW_DESSLEJUSTED = false;
-const DEBUG=true;
+const DEBUG=false;
 /*==============================*/
 
 // What is the difficulty metric? http://bit.ly/typeracertextdifficulty
