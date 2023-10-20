@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.7.0
+// @version      1.7.1
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -21,7 +21,7 @@
 
 /*=========SETTINGS=============*/
 const SHOW_DESSLEJUSTED = false;
-const DEBUG=false;
+const DEBUG=true;
 /*==============================*/
 
 // What is the difficulty metric? http://bit.ly/typeracertextdifficulty
@@ -285,7 +285,7 @@ function eugeneIsSmart(new_log_contents) {
                 const splitBody = body.split("|");
                 const endpoint = splitBody[6];
                 const payload = splitBody[13];
-                log('endpoint='+endpoint+' ; logPayload='+payload+' ; body='+body.toString());
+                // log('endpoint='+endpoint+' ; logPayload='+payload+' ; body='+body.toString());
 
                 const join_game_endpoints = ["joinStandaloneGame", "joinSinglePlayerGame", "joinSameReplayGame", "joinRecordedReplayGame", "joinInstantReplayGame"];
                 const join_room_endpoints = ["createAndJoinCustomRoom","joinRoom"]
@@ -301,8 +301,8 @@ function eugeneIsSmart(new_log_contents) {
                     this.addEventListener("load", function() {
                         try {
                         const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
-                            log("Typing log response JSON: " + responseJSON.toString());
-                            log('21='+responseJSON[21]+', 27='+responseJSON[27]+', 33='+responseJSON[33]+', 39='+responseJSON[39]+', 45='+responseJSON[45]+', 51='+responseJSON[51]+'; total length ='+responseJSON.length.toString());
+                            // log("Typing log response JSON: " + responseJSON.toString());
+                            // log('21='+responseJSON[21]+', 27='+responseJSON[27]+', 33='+responseJSON[33]+', 39='+responseJSON[39]+', 45='+responseJSON[45]+', 51='+responseJSON[51]+'; total length ='+responseJSON.length.toString());
                         let resp_len = responseJSON.length;
                         let registered_speed = responseJSON[resp_len-19];
                             let id = responseJSON[resp_len-17];
@@ -359,8 +359,8 @@ function eugeneIsSmart(new_log_contents) {
             log_contents = log_contents.replace(/(\\u....)/g, 'S'); //special characters
             log_contents = log_contents.replace(/(\\)\D/g, 'E'); //excepted characters
 
-            log('repaired and simplified log: '+log_contents);
-            log('repaired new log: '+new_log_contents);
+            // log('repaired and simplified log: '+log_contents);
+            // log('repaired new log: '+new_log_contents);
 
             log_contents = log_contents.replace(/^./, '');
             let start = parseInt(/(\d*)?/.exec(log_contents)[1]);
@@ -620,7 +620,8 @@ function eugeneIsSmart(new_log_contents) {
             accuracyTag.title = 'Original TypeRacer accuracy: '+oldAccuracyResult;
             //accuracyTag.style.fontWeight = 'normal';
 
-            pointsTag.innerHTML = parseFloat(points).toFixed(DEC_PLACES);
+            if(pointsTag)
+                pointsTag.innerHTML = parseFloat(points).toFixed(DEC_PLACES);
 
             let pingResult = speeds.ping.toString()+' ms';
 
