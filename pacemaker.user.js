@@ -31,7 +31,7 @@ function setDefaultSettings() {
     showRank=true;
     showCaret=true;
     usePb=true;
-    useRank=true;
+    useRank=false;
 }
 load_settings();
 
