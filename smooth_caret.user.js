@@ -357,7 +357,9 @@ function moveCaretToTarget() {
         if(inputFields.length==0)
             return;
         inputField=inputFields[0];
-        let contents = document.querySelector('.inputPanel > tbody > tr:nth-child(1) > td > table > tbody');
+        document.querySelector(".txtInput").onblur = null // Prevent race condition with contents.onclick
+        // let contents = document.querySelector('.inputPanel > tbody > tr:nth-child(1) > td > table > tbody');
+        let contents = document.querySelector(".inputPanel span").parentElement.parentElement;
         if(contents.onclick==null&&!isCaretHidden) {
             contents.onclick = function() { inputField.focus() };
             log('Restored input field focus on text click');
@@ -537,10 +539,51 @@ function monitorClock() {
     }
 }
 
-const INTERVAL=10;
-setInterval(isHighlighting,INTERVAL);
-setInterval(targetClock,INTERVAL);
-setInterval(moveCaretToTarget,INTERVAL);
+// const INTERVAL=10;
+// setInterval(isHighlighting,INTERVAL);
+// setInterval(targetClock,INTERVAL);
+// setInterval(moveCaretToTarget,INTERVAL);
+
+let animationId;
+
+function runAnimation() {
+    isHighlighting();
+    targetClock();
+    moveCaretToTarget();
+    animationId = requestAnimationFrame(runAnimation);
+}
+
+function stopAnimation() {
+    cancelAnimationFrame(animationId);
+}
+
+function animate() {
+    runAnimation();
+}
+
+// Start the animation
+animate();
+
+// Workaround if you tabbed out at the start of the race
+function waitForElm(selector) {
+    return new Promise(resolve => {
+        if (document.querySelector(selector)) return resolve(document.querySelector(selector));
+        const observer = new MutationObserver(mutations => {
+            if (document.querySelector(selector)) {
+                resolve(document.querySelector(selector));
+                observer.disconnect();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
+}
+waitForElm('.inputPanel span').then((elm) => {
+  document.querySelector(".inputPanel span").parentElement.parentElement.onclick = function() {
+    document.getElementsByClassName('txtInput')[0].focus()
+    document.querySelector(".txtInput").onblur = null
+  }
+});
+
 function componentToHex(c) { //where c is a string
   var hex = parseInt(c).toString(16);
   return hex.length == 1 ? "0" + hex : hex;
