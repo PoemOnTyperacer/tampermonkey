@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Smooth Caret
 // @namespace    http://tampermonkey.net/
-// @version      0.1.7
+// @version      0.1.8
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @description  Customizable, smooth caret for TypeRacer
@@ -27,6 +27,7 @@ const defaultSettings = {
 
 
 //--------------- SETTINGS----------------------//
+let debugMode=false;
 let caretColor = defaultSettings.caretColor;
 let caretReactivity=defaultSettings.caretReactivity;
 let caretThickness=defaultSettings.caretThickness;
@@ -35,7 +36,6 @@ let maxOpacity = defaultSettings.maxOpacity;
 let minOpacity = defaultSettings.minOpacity;
 let caretType=defaultSettings.caretType;
 let hideInputField =defaultSettings.hideInputField;
-let debugMode=defaultSettings.debugMode;
 let highlighting=defaultSettings.highlighting;
 //---------------------------------------------//
 
