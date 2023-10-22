@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Smooth Caret
 // @namespace    http://tampermonkey.net/
-// @version      0.1.7
+// @version      0.1.8
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/smooth_caret.user.js
 // @description  Customizable, smooth caret for TypeRacer
@@ -107,6 +107,19 @@ function getOptionsHTML(type) {
 function log(msg){
     if(debugMode)
         console.log('[Smooth caret] '+msg)
+}
+
+function waitForElm(selector) {
+    return new Promise(resolve => {
+        if (document.querySelector(selector)) return resolve(document.querySelector(selector));
+        const observer = new MutationObserver(mutations => {
+            if (document.querySelector(selector)) {
+                resolve(document.querySelector(selector));
+                observer.disconnect();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
 }
 
 /*Data storing/loading*/
@@ -524,6 +537,15 @@ function monitorClock() {
             caret.style.top = '0px';
             log('Ran out of time. Hiding and resetting caret, resetting target');
         }
+        // Workaround before the start of the race
+        if(labels[0].innerText==="The race is about to start!") {
+            waitForElm('.inputPanel span').then((elm) => {
+              document.querySelector(".inputPanel span").parentElement.parentElement.onclick = function() {
+                document.getElementsByClassName('txtInput')[0].focus()
+                document.querySelector(".txtInput").onblur = null
+              }
+            });
+        }
     }
 
     let editPopups=document.getElementsByClassName("DialogBox trPopupDialog editUserPopup");
@@ -563,26 +585,6 @@ function animate() {
 
 // Start the animation
 animate();
-
-// Workaround if you tabbed out at the start of the race
-function waitForElm(selector) {
-    return new Promise(resolve => {
-        if (document.querySelector(selector)) return resolve(document.querySelector(selector));
-        const observer = new MutationObserver(mutations => {
-            if (document.querySelector(selector)) {
-                resolve(document.querySelector(selector));
-                observer.disconnect();
-            }
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-    });
-}
-waitForElm('.inputPanel span').then((elm) => {
-  document.querySelector(".inputPanel span").parentElement.parentElement.onclick = function() {
-    document.getElementsByClassName('txtInput')[0].focus()
-    document.querySelector(".txtInput").onblur = null
-  }
-});
 
 function componentToHex(c) { //where c is a string
   var hex = parseInt(c).toString(16);
