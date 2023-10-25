@@ -365,7 +365,7 @@ function moveCaretToTarget() {
             }
         }
     monitorClock();
-    if(targetEls.length==0||target==null||ctrlA||typo) {
+    if(targetEls.length==0||target==null||ctrlA) {
         let inputFields=document.getElementsByClassName('txtInput');
         if(inputFields.length==0)
             return;
@@ -451,6 +451,7 @@ function moveCaretToTarget() {
     }
     // log('animation= '+'left '+lagTime+'ms ease-out, top '+lagTime+'ms ease-out');
     caret.style.transition = 'left '+lagTime+'ms ease-out, top '+lagTime+'ms ease-out';
+    if (typo) caret.style.transition='left 0s ease-out, top 0s ease-out';
 
     // set the elements position to their position for a smooth animation
     caret.style.left = xC + 'px';
