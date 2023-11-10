@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.6
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -10,14 +10,15 @@
 // @match        https://staging.typeracer.com/*
 // @icon         https://www.google.com/s2/favicons?domain=typeracer.com
 // @grant        GM_xmlhttpRequest
-// @grant		 GM_registerMenuCommand
-// @grant		 GM_getValue
-// @grant		 GM_setValue
+// @grant        GM_registerMenuCommand
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @connect      typeracerdata.com
 // @noframes
 // ==/UserScript==
 
 let DEBUG = false;
+let DECIMAL_PLACES=0;
 let targetPace,targetRank,targetUsername,caretColor,showPb,showRank,showCaret,usePb,useRank,showId,showDefault,showFinal,showDate;
 function setDefaultSettings() {
     targetPace=140;
@@ -151,7 +152,6 @@ function load_settings() {
     log('[settings] loaded data:\ntargetPace='+targetPace+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
 }
 
-const DECIMAL_PLACES=0;
 let displayDiv;
 let menuOpen=false;
 let pbPace;
@@ -214,6 +214,10 @@ function clock() {
                 current_username=/.*\((.*)\)$/.exec(current_username)[1];
             if(username!=current_username) {
                 log('username: '+current_username);
+                if(current_username=='ginoo75') {
+                    log('GINOO75 mode engaged');
+                    DECIMAL_PLACES=2;
+                }
                 username=current_username;
             }
         }
@@ -654,7 +658,8 @@ async function endpoints() {
                     }
                 }
                 catch(error){
-                    log("[endpoints] error while getting "+endpoint+"response: "+error+'\nResponse text: '+this.responseText,'#ff0000');
+                    if(endpoint!='getSponsoredNotice')
+                        log("[endpoints] error while getting "+endpoint+" response: "+error+'\nResponse text: '+this.responseText,'#ff0000');
                 }
             });
         }
