@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.7
+// @version      1.8
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -10,9 +10,9 @@
 // @match        https://staging.typeracer.com/*
 // @icon         https://www.google.com/s2/favicons?domain=typeracer.com
 // @grant        GM_xmlhttpRequest
-// @grant		 GM_registerMenuCommand
-// @grant		 GM_getValue
-// @grant		 GM_setValue
+// @grant        GM_registerMenuCommand
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @connect      typeracerdata.com
 // @noframes
 // ==/UserScript==
@@ -90,7 +90,8 @@ function config() {
         }
         var div = document.createElement("div");
         div.style = "margin: auto; overflow-y: auto; max-height: 90%; width: fit-content; border-radius:5px; height: fit-content; border: 1px solid black; color:#ffffff; background: #000000; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8888888; line-height: 1;";
-        div.innerHTML = "<b><br><center>Pacemaker Settings</center></b>"
+        div.innerHTML = "<b><br><center>Pacemaker</center></b>"
+            + "<center><span style='font-size: 45%'>powered by <a href='https://typeracerdata.com/' target='_blank'>typeracerdata.com</a></span></center>"
             + "<div style='margin: 20px;'><br><input id='targetPace' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Minimum pace (WPM)"
             + "<div style='margin: auto;'><br><input id='targetUsername' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target username (empty=current)"
             + "<div style='margin: auto;'><br><input id='targetRank' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target rank (eg: 10)"
