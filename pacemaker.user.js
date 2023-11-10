@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.7
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -10,9 +10,9 @@
 // @match        https://staging.typeracer.com/*
 // @icon         https://www.google.com/s2/favicons?domain=typeracer.com
 // @grant        GM_xmlhttpRequest
-// @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
+// @grant		 GM_registerMenuCommand
+// @grant		 GM_getValue
+// @grant		 GM_setValue
 // @connect      typeracerdata.com
 // @noframes
 // ==/UserScript==
@@ -214,10 +214,6 @@ function clock() {
                 current_username=/.*\((.*)\)$/.exec(current_username)[1];
             if(username!=current_username) {
                 log('username: '+current_username);
-                if(current_username=='ginoo75') {
-                    log('GINOO75 mode engaged');
-                    DECIMAL_PLACES=2;
-                }
                 username=current_username;
             }
         }
@@ -250,6 +246,10 @@ function clock() {
                 current_username=/.*\((.*)\)$/.exec(current_username)[1];
             if(username!=current_username) {
                 log('username: '+current_username);
+                if(current_username=='ginoo75') {
+                    log('GINOO75 mode engaged');
+                    DECIMAL_PLACES=2;
+                }
                 username=current_username;
             }
         }
