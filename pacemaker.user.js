@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.8
+// @version      1.9
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -16,6 +16,7 @@
 // @connect      typeracerdata.com
 // @noframes
 // ==/UserScript==
+
 
 let DEBUG = false;
 let DECIMAL_PLACES=0;
@@ -163,6 +164,14 @@ const showDebugRectangles=false;
 const GUI_INTERVAL = 100;
 const offset = 0;
 const responsiveTheme = typeof com_typeracer_redesign_Redesign === "function";
+let universe='play';
+const UNIVERSE_REGEX=/universe=(.+?)(&.+|$)/;
+const CURRENT_URL=window.location.href;
+let universeMatch=UNIVERSE_REGEX.exec(CURRENT_URL);
+if(universeMatch!=null) {
+    universe=universeMatch[1];
+}
+log('current universe: '+universe);
 let isGuest=null;
 let racing=false;
 let username=null;
@@ -677,8 +686,8 @@ async function getTextData(id) {
         document.querySelector('#displayId').innerText='#'+id;
 
     // top N data
-    let text_leaderboard_url = 'https://typeracerdata.com/text?id='+id+'&rank_start='+targetRank+'&rank_end='+targetRank;
-
+    let text_leaderboard_url = 'https://typeracerdata.com/text?universe='+universe+'&id='+id+'&rank_start='+targetRank+'&rank_end='+targetRank;
+    log('[getdata] text_leaderboard_url = '+text_leaderboard_url);
     GM_xmlhttpRequest ( {
         method: 'GET',
         url: text_leaderboard_url,
@@ -731,7 +740,8 @@ async function getTextData(id) {
     else {
         tempUsername=targetUsername;
     }
-    let text_history_url = 'https://typeracerdata.com/text.races?text='+id+'&username='+tempUsername;
+    let text_history_url = 'https://typeracerdata.com/text.races?universe='+universe+'&text='+id+'&username='+tempUsername;
+    log('[getdata] text_history_url = '+text_history_url);
 
     GM_xmlhttpRequest ( {
         method: 'GET',
