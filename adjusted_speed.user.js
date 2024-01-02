@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.7.1
+// @version      1.7.2
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -404,6 +404,8 @@ function eugeneIsSmart(new_log_contents) {
                 //window.alert('verif; tot_time-total_time = '+(tot_time-total_time).toString());
                 log('window.alert: verif; tot_time-total_time = '+(tot_time-total_time).toString());
             }
+
+
             let raw_speed = 12000 * quote_length / raw_time;
             let raw_desslejusted_speed = 12000 * quote_length / (raw_time - start);
             let raw_adjusted_speed = 12000 * (quote_length - 1) / (raw_time - start);
@@ -414,6 +416,7 @@ function eugeneIsSmart(new_log_contents) {
             let lagged_speed_str = (((document.getElementsByClassName('tblOwnStatsNumber') || [])[0] || {}).innerText || ' wpm').split(' wpm')[0];
             let lagged_speed = parseInt(lagged_speed_str);
             if ((lagged_speed_str == '' || lagged_speed > unlagged_speed + 1)) { //only approximate lagged wpm available before saving
+                log(lagged_speed+'>'+unlagged_speed+'; reverse lag status set to true');
                 status.reverseLag = true;
             }
 
@@ -503,8 +506,9 @@ function eugeneIsSmart(new_log_contents) {
                     }
                 }
                 else if (gameStatus == 'Go!' || gameStatus.startsWith('The race is on')) {
-                    status.reverseLag = false;
                     if (status.race != 'racing') {
+                        status.reverseLag = false;
+                        log('reverse lag status set to false');
                         log('GUI race=racing');
                         status.race = 'racing';
                     }
@@ -521,7 +525,7 @@ function eugeneIsSmart(new_log_contents) {
         }
         setInterval(guiClock, 1);
 
-        function getPracticeRaceData() {
+        async function getPracticeRaceData() {
             let latestTypingLog = atob(window.localStorage.getItem('latestTypingLog'));
             let latestNewTypingLog = atob(window.localStorage.getItem('latestNewTypingLog'));
             let latestRegisteredSpeed = window.localStorage.getItem('latestRegisteredSpeed');
@@ -530,6 +534,15 @@ function eugeneIsSmart(new_log_contents) {
             let latestAccuracy = window.localStorage.getItem('latestAccuracy');
             if(latestTypingLog==undefined||latestNewTypingLog==undefined||latestRegisteredSpeed==undefined||latestAccuracy==undefined||latestPoints==undefined)
                 return;
+
+            while(!document.querySelector('.tblOwnStats > tbody > tr:nth-child(2)')) {
+                if(status.race!='finished') {
+                    return;
+                }
+                let sleepTime=200;
+                log('no tblOwnStats; sleeping '+sleepTime+' ms');
+                await sleep(sleepTime);
+            }
             let latestSpeeds = logToSpeeds(latestTypingLog,latestNewTypingLog,latestRegisteredSpeed);
             showPracticeRaceData(latestSpeeds,latestRegisteredSpeed,latestAccuracy,latestPoints,latestId);
         }
@@ -544,6 +557,7 @@ function eugeneIsSmart(new_log_contents) {
                 return;
             }
             const DEC_PLACES=2;
+
 
             let timeLine = document.querySelector('.tblOwnStats > tbody > tr:nth-child(2)');
 
@@ -567,7 +581,7 @@ function eugeneIsSmart(new_log_contents) {
 
 
             let accuracyTag = document.getElementsByClassName('tblOwnStatsNumber')[2];
-            
+
             let loadTick=0;
             while(accuracyTag==undefined&&loadTick<30) {
                 await sleep(200);
@@ -579,7 +593,7 @@ function eugeneIsSmart(new_log_contents) {
                 log("showPracticeRaceData error: accuracy tag timed out");
                 return;
             }
-            
+
             let displayed_accuracy = parseFloat(accuracyTag.innerHTML.slice(0,-1));
             let rounded_accuracy = Math.round(accuracy*1000)/10;
             let accuracyResult;
@@ -651,8 +665,10 @@ function eugeneIsSmart(new_log_contents) {
             else if (speeds.adjusted >= 300) {
                 adjustedStyle = ' style="color: #ffc22a;"'; // 300 club
             }
-            if (status.reverseLag)
+            if (status.reverseLag) {
+                log('reverse lag status = true; applying red tag');
                 laggedTag.style.color = '#ff0000';
+            }
             let adjustedLine = getElementFromString('tr', '<td' + adjustedStyle + '>Adjusted:</td><td><div class="adjustedDisplay tblOwnStatsNumber" style=""><span class="adjusted"' + adjustedStyle + '>' + adjustedResult + '</span></div></td>');
             let rawAdjustedLine = getElementFromString('tr', '<td></td><td><div class="rawAdjustedDisplay tblOwnStatsNumber" style=""><span class="rawAdjusted" style = "font-weight:normal;">' + rawAdjustedResult + '</span></div></td>');
 
