@@ -31,9 +31,9 @@ Shows the all-time best and your personal best speed on the text you're about to
 Smoother animation and customizable appearance for your cursor while typing.<br>
 <em>With "Hide input field" option selected, will automatically scroll texts taller than your screen as you progress (eg. in marathon universe).</em>
 - <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/move_countdown.user.js">Drag-and-drop countdown</a>:<br>
-Lets you move the race starting countdown where you like.
+Lets you move the race starting countdown anywhere you like.
 - <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/better_profiles.user.js">Better profiles</a>:<br>
-For cleaner Typeracer profiles.
+Cleaner Typeracer profiles.
 - <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/no_spacebar_scroll.user.js">No spacebar scroll</a>:<br>
 For those who like to mash keys before the race starts, prevents the page from scrolling down when you hit spacebar.
 
