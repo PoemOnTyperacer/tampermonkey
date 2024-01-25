@@ -2,7 +2,7 @@
 // @name         Typeracer: No spacebar scroll
 // @namespace    http://tampermonkey.net/
 // @version      0.0.1
-// @description  Typeracer: No spacebar scroll
+// @description  Prevents the page from scrolling down when pressing spacebar outside a race on Typeracer
 // @author       poem#3305
 // @match        https://play.typeracer.com/*
 // @match        https://staging.typeracer.com/*
