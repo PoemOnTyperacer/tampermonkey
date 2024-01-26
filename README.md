@@ -54,6 +54,6 @@ Ctrl + Alt + S to save a practice race.
 - <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/unlagged_scores.user.js">Unlagged scores window</a>:<br>
 Adds a floating window showing your opponents' latest unlagged speed result. Ctrl + Alt + U to toggle.
 - <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/blacklist.user.js">Blacklist</a>:<br>
-Hides users of your choosing. <em>Only in-race and on the last hour leaderboard, not in dms/race details/competitions/top 10s/hof.</em>
+Hides users of your choosing. <em>Only in-race, not in dms/race details/competitions/leaderboards.</em>
 - <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/wpm_popup.user.js">Live WPM popup</a>:<br>
 <b>For use with Smooth Caret.</b> Adds a window with your current speed that follows your cursor during a race.
