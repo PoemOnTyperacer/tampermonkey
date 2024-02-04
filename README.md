@@ -27,9 +27,6 @@
 Embeds your unlagged, adjusted and raw speed results directly into TypeRacer.
 - <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/pacemaker.user.js">Pacemaker</a>:<br>
 Shows the all-time best and your personal best speed on the text you're about to race. Lets you enable a "pace caret" that moves at a customizable target speed.
-- <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/smooth_caret.user.js">Smooth caret</a>:<br>
-Smoother animation and customizable appearance for your cursor while typing.<br>
-<em>With "Hide input field" option selected, will automatically scroll texts taller than your screen as you progress (eg. in marathon universe).</em>
 - <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/move_countdown.user.js">Drag-and-drop countdown</a>:<br>
 Lets you move the race starting countdown anywhere you like.
 - <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/better_profiles.user.js">Better profiles</a>:<br>
@@ -49,6 +46,10 @@ Calculates and embeds the average speed over the last 20 races on Keymash profil
 
 
 ## For TypeRacer (even more random features)
+- <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/smooth_caret.user.js">Smooth caret</a>:<br>
+Smoother animation and customizable appearance for your cursor while typing.<br>
+<em>With "Hide input field" option selected, will automatically scroll texts taller than your screen as you progress (eg. in marathon universe).<br>
+Known issues: Messes with password autofill. Doesn't work with text display formats other than "new-style", Default font size.</em>
 - <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/save_race_shortcut.user.js">Save practice race shortcut</a>:<br>
 Ctrl + Alt + S to save a practice race.
 - <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/unlagged_scores.user.js">Unlagged scores window</a>:<br>
