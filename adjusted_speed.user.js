@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.7.2
+// @version      1.8.0
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -20,8 +20,8 @@
 
 
 /*=========SETTINGS=============*/
-const SHOW_DESSLEJUSTED = false;
-const DEBUG=false;
+const SHOW_DESSLEJUSTED = true;
+const DEBUG=true;
 /*==============================*/
 
 // What is the difficulty metric? http://bit.ly/typeracertextdifficulty
@@ -398,6 +398,8 @@ function eugeneIsSmart(new_log_contents) {
 
             let lagged_time = Math.round(12000 * quote_length/registered_speed);
             let ping = lagged_time-total_time;
+
+
             log('lagged time = '+lagged_time+' ms; ping = '+ping+' ms');
             let verif = tot_time-total_time;
             if(verif!=0) {
@@ -420,6 +422,10 @@ function eugeneIsSmart(new_log_contents) {
                 status.reverseLag = true;
             }
 
+
+            let newping=Math.round(12000 * quote_length*(1/registered_speed-1/adjusted_speed));
+
+
             partialAdjusteds.push(adjusted_speed);
             if (adjusted_speed > maxAdj[1]) {
                 maxAdj = [quote_length - 1, adjusted_speed];
@@ -440,7 +446,8 @@ function eugeneIsSmart(new_log_contents) {
                 rawAdjusted: raw_adjusted_speed,
                 correctionTime: correction_time,
                 correctionRatio: correction_ratio,
-                ping: ping
+                ping: ping,
+                newping: newping
             }
             return data;
         }
@@ -562,6 +569,8 @@ function eugeneIsSmart(new_log_contents) {
             let timeLine = document.querySelector('.tblOwnStats > tbody > tr:nth-child(2)');
 
             let tblOwnStatsBody = timeLine.parentNode;
+
+
             let unlaggedResult = speeds.unlagged.toFixed(DEC_PLACES) + ' wpm';
             let adjustedResult = speeds.adjusted.toFixed(DEC_PLACES+1) + ' wpm';
             let startResult = speeds.start + 'ms';
@@ -637,12 +646,24 @@ function eugeneIsSmart(new_log_contents) {
             if(pointsTag)
                 pointsTag.innerHTML = parseFloat(points).toFixed(DEC_PLACES);
 
+            let newPingResult=speeds.newping.toString()+' ms';
             let pingResult = speeds.ping.toString()+' ms';
 
-            let unlaggedLine = getElementFromString('tr', '<td>Unlagged:</td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><span class="unlagged">' + unlaggedResult + '</span></div></td>');
-            let rawUnlaggedLine = getElementFromString('tr', '<td></td><td><div class="rawUnlaggedDisplay tblOwnStatsNumber" style=""><span class="rawUnlagged" style="font-weight:normal;">' + rawUnlaggedResult + '</span></div></td>');
+            let unlaggedLine;
+            let rawUnlaggedLine;
+            let pingLine;
+            if(status.room == 'ghost'|| status.room == 'practice') {
+                unlaggedLine = getElementFromString('tr', '<td><s>Unlagged:</s></td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><s><span class="unlagged">' + unlaggedResult + '</span></s></div></td>');
+                rawUnlaggedLine = getElementFromString('tr', '<td></td><td><div class="rawUnlaggedDisplay tblOwnStatsNumber" style=""><s><span class="rawUnlagged" style="font-weight:normal;">' + rawUnlaggedResult + '</span></s></div></td>');
+                pingLine = getElementFromString('tr', '<td>Adjusted ping:</td><td><div class="pingDisplay tblOwnStatsNumber" style=""><span class="ping">' + newPingResult + '</span></div></td>');
+            }
+            else {
+                unlaggedLine = getElementFromString('tr', '<td><Unlagged:</td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><span class="unlagged">' + unlaggedResult + '</span></div></td>');
+                rawUnlaggedLine = getElementFromString('tr', '<td></td><td><div class="rawUnlaggedDisplay tblOwnStatsNumber" style=""><span class="rawUnlagged" style="font-weight:normal;">' + rawUnlaggedResult + '</span></div></td>');
+                pingLine = getElementFromString('tr', '<td>Ping:</td><td><div class="pingDisplay tblOwnStatsNumber" style=""><span class="ping">' + pingResult + '</span></div></td>');
+            }
             let startLine = getElementFromString('tr', '<td>Start:</td><td><div class="startDisplay tblOwnStatsNumber" style=""><span class="start">' + startResult + '</span></div></td>');
-            let pingLine = getElementFromString('tr', '<td>Ping:</td><td><div class="pingDisplay tblOwnStatsNumber" style=""><span class="ping">' + pingResult + '</span></div></td>');
+
 
             let difficultyLine=null;
                 try {
@@ -667,6 +688,11 @@ function eugeneIsSmart(new_log_contents) {
             }
             if (status.reverseLag) {
                 log('reverse lag status = true; applying red tag');
+                laggedTag.style.color = '#ff0000';
+            }
+            else if(speeds.newping<0&&(status.room == 'ghost'|| status.room == 'practice')) {
+                status.reverseLag=true;
+                log('reverse lag detected with adjusted ping. Rev lag status = true; applying red tag');
                 laggedTag.style.color = '#ff0000';
             }
             let adjustedLine = getElementFromString('tr', '<td' + adjustedStyle + '>Adjusted:</td><td><div class="adjustedDisplay tblOwnStatsNumber" style=""><span class="adjusted"' + adjustedStyle + '>' + adjustedResult + '</span></div></td>');
