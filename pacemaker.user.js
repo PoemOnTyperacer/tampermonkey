@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.9
+// @version      1.10
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -18,15 +18,33 @@
 // ==/UserScript==
 
 
+// Debug settings
 let DEBUG = false;
 let DECIMAL_PLACES=0;
-let targetPace,targetRank,targetUsername,caretColor,showPb,showRank,showCaret,usePb,useRank,showId,showDefault,showFinal,showDate;
+let start_time=300; //ms
+const showDebugRectangles=false;
+const GUI_INTERVAL = 100;
+
+// Context
+const responsiveTheme = typeof com_typeracer_redesign_Redesign === "function";
+let universe='play';
+const UNIVERSE_REGEX=/universe=(.+?)(&.+|$)/;
+const CURRENT_URL=window.location.href;
+let universeMatch=UNIVERSE_REGEX.exec(CURRENT_URL);
+if(universeMatch!=null) {
+    universe=universeMatch[1];
+}
+log('current universe: '+universe);
+
+
+let targetPace,useTb,targetRank,targetUsername,caretColor,showPb,showRank,showCaret,usePb,useRank,showId,showDefault,showFinal,showDate;
 function setDefaultSettings() {
-    targetPace=140;
+    targetPace=100;
+    useTb=true;
     targetRank=10;
     targetUsername='';
     caretColor='255,0,0';
-    showId=true;
+    showId=false;
     showDefault=true;
     showPb=true;
     showDate=false;
@@ -35,13 +53,103 @@ function setDefaultSettings() {
     usePb=true;
     useRank=false;
 }
-load_settings();
 
-if (typeof GM_registerMenuCommand !== "undefined") {
-    GM_registerMenuCommand("Pacemaker settings", config,'D');
+let GUITimeout;
+let menuOpen=false;
+let displayDiv;
+
+let pbPace;
+let rankPace;
+let pace=targetPace;
+
+let username=null;
+let isGuest=null;
+let racing=false;
+let status='standby';
+let await_updatePlayerProgress=false;
+let text_id=null;
+let registered_speed = null;
+let text_best_average=null;
+let tba_username=null;
+let update_tb_line=false;
+
+let lineList=[];
+let rectList=[];
+
+let pCaret;
+let blinkDuration = 1;
+let caretThickness = 0.3;
+let maxOpacity = 0.7;
+let minOpacity = 0.3;
+let caretType=0;
+let caretOffset=[];
+
+
+// log and utility
+function log(msg, color='#7DF9FF') {
+    if(DEBUG)
+        console.log('%c [Pace caret] '+msg, 'color: '+color);
+}
+function logSettings() {
+    log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
+}
+function sleep(x) { // Wait for x ms
+    return new Promise(resolve => setTimeout(resolve, x));
+}
+function capitalizeFirstLetter(string) {
+    if(string=='ginoo75') {
+        return string;
+    }
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+function componentToHex(c) { //where c is a string
+  var hex = parseInt(c).toString(16);
+  return hex.length == 1 ? "0" + hex : hex;
+}
+function RGBToHex(rgbString) {
+    let [red,green,blue]=rgbString.replace(/\s/g, '').split(',');
+    return "#" + componentToHex(red) + componentToHex(green) + componentToHex(blue);
+}
+function hexToRGB(hex) {
+    let red = parseInt(hex[1]+hex[2],16);
+    let green = parseInt(hex[3]+hex[4],16);
+    let blue = parseInt(hex[5]+hex[6],16);
+    return [red,green,blue].join(',');
 }
 
-let t;
+
+// Data/settings menu
+function load_settings(refreshTb=true) {
+    targetPace=GM_getValue("targetPace");
+    if(targetPace==undefined) {
+        setDefaultSettings();
+        log('[settings] no saved data. Using default:','#D3D3D3');
+        logSettings();
+        return;
+    }
+    targetUsername=GM_getValue("targetUsername");
+    if(targetUsername!=''&&refreshTb)
+        getTextBestAverage(targetUsername);
+    useTb=!!+GM_getValue("useTb");
+    targetRank=GM_getValue("targetRank");
+    caretColor=GM_getValue("caretColor");
+    showId=!!+GM_getValue("showId");
+    showDefault=!!+GM_getValue("showDefault");
+    showPb=!!+GM_getValue("showPb");
+    showDate=!!+GM_getValue("showDate");
+    showRank=!!+GM_getValue("showRank");
+    showFinal=!!+GM_getValue("showFinal");
+    showCaret=!!+GM_getValue("showCaret");
+    usePb=!!+GM_getValue("usePb");
+    useRank=!!+GM_getValue("useRank", useRank);
+    log('[settings] loaded data:','#D3D3D3');
+    logSettings();
+}
+function addConfig() {
+    if (typeof GM_registerMenuCommand !== "undefined") {
+        GM_registerMenuCommand("Pacemaker settings", config,'D');
+    }
+}
 function config() {
     if (typeof GM_setValue !== "undefined")
     {
@@ -51,9 +159,20 @@ function config() {
         function saveCfg()
         {
             targetPace=document.getElementById("targetPace").value;
+            useTb=document.getElementById("useTb").checked;
             targetUsername=document.getElementById("targetUsername").value;
+            update_tb_line=true;
+            if(targetUsername=='') {
+                if(username!=tba_username)
+                    getTextBestAverage(username);
+            }
+            else if(targetUsername!=tba_username)
+                getTextBestAverage(targetUsername);
+            else
+                update_tb_line=false;
             targetRank=document.getElementById("targetRank").value;
-            caretColor=document.getElementById("caretColor").value;
+            caretColor=hexToRGB(document.getElementById("caretColor").value);
+            setCaretRGB(caretColor);
             showId=document.getElementById("showId").checked;
             showDefault=document.getElementById("showDefault").checked;
             showPb=document.getElementById("showPb").checked;
@@ -66,6 +185,7 @@ function config() {
 
 
             GM_setValue("targetPace", targetPace);
+            GM_setValue("useTb", useTb ? "1" : "0");
             GM_setValue("targetUsername", targetUsername);
             GM_setValue("targetRank", targetRank);
             GM_setValue("caretColor", caretColor);
@@ -79,10 +199,11 @@ function config() {
             GM_setValue("usePb", usePb ? "1" : "0");
             GM_setValue("useRank", useRank ? "1" : "0");
 
-            log('[settings] saved data:\ntargetPace='+targetPace+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
+            log('[settings] saved data:','#D3D3D3');
+            logSettings();
             document.getElementById("cfg_save").value = "Saved!";
-            clearTimeout(t);
-            t = setTimeout(function() {
+            clearTimeout(GUITimeout);
+            GUITimeout = setTimeout(function() {
                 let wowsers=document.getElementById("cfg_save");
                 if(wowsers==null)
                     return;
@@ -93,10 +214,15 @@ function config() {
         div.style = "margin: auto; overflow-y: auto; max-height: 90%; width: fit-content; border-radius:5px; height: fit-content; border: 1px solid black; color:#ffffff; background: #000000; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8888888; line-height: 1;";
         div.innerHTML = "<b><br><center>Pacemaker</center></b>"
             + "<center><span style='font-size: 45%'>powered by <a href='https://typeracerdata.com/' target='_blank'>typeracerdata.com</a></span></center>"
-            + "<div style='margin: 20px;'><br><input id='targetPace' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Minimum pace (WPM)"
+            + "<div style='margin: 20px;'><br><span id='targetPaceSpan'><input id='targetPace' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Minimum pace (WPM)</span>"
+
+            + "<br><span id='useTbSpan' style='opacity:0.5;pointer-events:none;'><input id='useTb' type='checkbox' style='float: left; width:initial; padding: initial; margin-top:1.3em;'><span id='useTbDisplay' style='float:left;margin-top:1em;margin-left:1em;margin-bottom:1em;'>Use text best average as minimum pace: unknown</span></span>"
+
             + "<div style='margin: auto;'><br><input id='targetUsername' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target username (empty=current)"
             + "<div style='margin: auto;'><br><input id='targetRank' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target rank (eg: 10)"
-            + "<div style='margin: auto;'><br><input id='caretColor' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Caret color (r,g,b)"
+
+            + "<div style='margin: auto;'><br><input id='caretColor' type='color' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:15%; height:1.5em; padding: initial; margin: initial;'> Caret color (r,g,b)"
+
             + "<br><br><br><br></div><center><b>Show:</b>"
             + "<br><br><input id='showId' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Text ID</span>"
             + "<br><br><input id='showDefault' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Minimum pace</span>"
@@ -110,11 +236,51 @@ function config() {
             + "<br><br><input id='useRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Nth fastest</span>"
             + "<br><br><br><input id='cfg_save' type='button' value='Save'  style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> <input id='cfg_close' type='button' value='Close'  style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'></center>";
         document.body.appendChild(div);
-        load_settings();
+
+        load_settings(false);
         document.getElementById("targetPace").value = targetPace;
-        document.getElementById("targetUsername").value = targetUsername;
+        let tbCheckbox=document.getElementById("useTb");
+        tbCheckbox.onchange = toggleTb;
+        function toggleTb() {
+            let targetPaceSpan=document.getElementById('targetPaceSpan');
+            if(tbCheckbox.checked) {
+                targetPaceSpan.style.opacity='0.5';
+                targetPaceSpan.style.pointerEvents='none';
+            }
+            else {
+                targetPaceSpan.style.opacity='1';
+                targetPaceSpan.style.pointerEvents='';
+            }
+        }
+        if(text_best_average!=null&&tba_username!=null) {
+            document.getElementById('useTbDisplay').innerText='Use text bests average as minimum pace: '+text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
+            let useTbSpan=document.getElementById('useTbSpan');
+            useTbSpan.style.opacity='1';
+            useTbSpan.style.pointerEvents='';
+            if(useTb) {
+                tbCheckbox.click();
+            }
+        }
+        else {
+            tbCheckbox.checked = useTb;
+        }
+        let targetUsernameInput=document.getElementById("targetUsername");
+        targetUsernameInput.value = targetUsername;
+        if(username!=null) {
+            targetUsernameInput.placeholder=username;
+        }
+        else
+            targetUsernameInput.placeholder='unknown';
+        if(targetUsername=='') {
+            if(!isGuest) {
+                if(username!=tba_username)
+                    getTextBestAverage(username);
+            }
+            else
+                tba_username=null;
+        }
         document.getElementById("targetRank").value = targetRank;
-        document.getElementById("caretColor").value = caretColor;
+        document.getElementById("caretColor").value = RGBToHex(caretColor);
         document.getElementById("showId").checked = showId;
         document.getElementById("showDefault").checked = showDefault;
         document.getElementById("showPb").checked = showPb;
@@ -132,65 +298,10 @@ function config() {
         alert("Sorry, Chrome userscripts in native mode can't have configurations! Install TamperMonkey userscript-manager extension");
     }
 }
-function load_settings() {
-    targetPace=GM_getValue("targetPace");
-    if(targetPace==undefined) {
-        setDefaultSettings();
-        log('[settings] no saved data. Using default:\ntargetPace='+targetPace+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showBiden; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
-        return;
-    }
-    targetUsername=GM_getValue("targetUsername");
-    targetRank=GM_getValue("targetRank");
-    caretColor=GM_getValue("caretColor");
-    showId=!!+GM_getValue("showId");
-    showDefault=!!+GM_getValue("showDefault");
-    showPb=!!+GM_getValue("showPb");
-    showDate=!!+GM_getValue("showDate");
-    showRank=!!+GM_getValue("showRank");
-    showFinal=!!+GM_getValue("showFinal");
-    showCaret=!!+GM_getValue("showCaret");
-    usePb=!!+GM_getValue("usePb");
-    useRank=!!+GM_getValue("useRank", useRank);
-    log('[settings] loaded data:\ntargetPace='+targetPace+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
-}
 
-let displayDiv;
-let menuOpen=false;
-let pbPace;
-let rankPace;
-let pace=targetPace;
-let start_time=300; //ms
-const showDebugRectangles=false;
-const GUI_INTERVAL = 100;
-const offset = 0;
-const responsiveTheme = typeof com_typeracer_redesign_Redesign === "function";
-let universe='play';
-const UNIVERSE_REGEX=/universe=(.+?)(&.+|$)/;
-const CURRENT_URL=window.location.href;
-let universeMatch=UNIVERSE_REGEX.exec(CURRENT_URL);
-if(universeMatch!=null) {
-    universe=universeMatch[1];
-}
-log('current universe: '+universe);
-let isGuest=null;
-let racing=false;
-let username=null;
-let pCaret;
-let caretOffset=[];
-let status='standby';
-let text_id=null;
-let await_updatePlayerProgress=false;
-let lineList=[];
-let rectList=[];
 
-//for debugging
-function log(msg, color='#7DF9FF') {
-    if(DEBUG)
-        console.log('%c [Pace caret] '+msg, 'color: '+color);
-}
-
-// Determine: is guest/username/is racing
-function clock() {
+// Monitoring the Typeracer UI
+function clock() { // Determine: is guest/username/is racing
     //Check for race start
     let gameStatusLabels = document.getElementsByClassName('gameStatusLabel');
     let gameStatus = ((gameStatusLabels || [])[0] || {}).innerHTML || '';
@@ -198,12 +309,36 @@ function clock() {
         racing = true;
         raceStart();
     }
-    if(racing&&((gameStatusLabels.length==0) || ( gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')))){
+    if(racing&&((gameStatusLabels.length==0) || (document.getElementsByClassName('rank')[0].innerText=='Done!'||document.getElementsByClassName('rank')[0].innerText.includes('Place')/*gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')*/))){
         racing = false;
         raceEnd();
     }
 
     let current_username;
+    function onLogoutCommon() {
+        log('logged out');
+        if(targetUsername=='') {
+            text_best_average=null;
+            tba_username=null;
+        }
+        username=null;
+        isGuest=true;
+    }
+    function onLoginCommon(label) {
+        current_username=label.innerText;
+        if(current_username.includes('('))
+            current_username=/.*\((.*)\)$/.exec(current_username)[1];
+        if(username!=current_username) {
+            log('username: '+current_username);
+            if(current_username=='ginoo75') {
+                log('GINOO75 mode engaged');
+                DECIMAL_PLACES=2;
+            }
+            username=current_username;
+            if(text_best_average==null&&tba_username==null)
+                getTextBestAverage(username);
+        }
+    }
     //Refresh username
     if(responsiveTheme) {
         let loginButtons=document.getElementsByClassName('signIn');
@@ -219,20 +354,12 @@ function clock() {
                 isGuest=false;
                 log('logged in');
             }
-            current_username=username_tag.innerText;
-            if(current_username.includes('('))
-                current_username=/.*\((.*)\)$/.exec(current_username)[1];
-            if(username!=current_username) {
-                log('username: '+current_username);
-                username=current_username;
-            }
+            onLoginCommon(username_tag);
         }
         else {
             if(isGuest)
                 return;
-            log('logged out');
-            username=null;
-            isGuest=true;
+            onLogoutCommon();
         }
     }
     else {//classic theme
@@ -242,172 +369,16 @@ function clock() {
         if(usernameLabel.innerText=='Guest') {
             if(isGuest)
                 return;
-            log('logged out');
-            username=null;
-            isGuest=true;
+            onLogoutCommon();
         }
         else {
             if(isGuest||isGuest==null) {
                 isGuest=false;
                 log('logged in');
             }
-            current_username=usernameLabel.innerText;
-            if(current_username.includes('('))
-                current_username=/.*\((.*)\)$/.exec(current_username)[1];
-            if(username!=current_username) {
-                log('username: '+current_username);
-                if(current_username=='ginoo75') {
-                    log('GINOO75 mode engaged');
-                    DECIMAL_PLACES=2;
-                }
-                username=current_username;
-            }
+            onLoginCommon(usernameLabel);
         }
     }
-}
-setInterval(clock, GUI_INTERVAL);
-
-//create caret
-function createPCaret() {
-    let blinkDuration = 1;
-    let caretThickness = 0.3;
-    let maxOpacity = 0.7;
-    let minOpacity = 0.3;
-    let caretType=0;
-
-
-    pCaret=document.createElement('div');
-    pCaret.style.visibility='hidden';
-    pCaret.id='pCaret';
-    document.body.insertAdjacentHTML("beforeend",`<style>
- #pCaret {
-  background-color: white;
-  position: absolute;
-  z-index:1000;
-  border-radius: 15%;
-}
-.box {
-  position: absolute !important;
-}
-#pCaretDisplay {
-background-color: rgba(0,0,0,0.7)!important;
-padding:10px;
-border-radius:5px;
-color: #ffffff!important;
-margin-bottom:10px;
-}
-</style>
-
-
-<style id='pCaretBlinkStyle'></style>
-<style id='pCaretThicknessStyle'></style>
-<style id='pCaretAnimationStyle'></style>`);
-    function setBlinkDuration() {
-        let caretAnimationStyle=document.getElementById('pCaretAnimationStyle');
-        caretAnimationStyle.innerHTML = `#pCaret{
-    -moz-transition:all `+blinkDuration+`s ease-in-out;
-    -webkit-transition:all `+blinkDuration+`s ease-in-out;
-    -o-transition:all `+blinkDuration+`s ease-in-out;
-    -ms-transition:all `+blinkDuration+`s ease-in-out;
-
-    transition:all `+blinkDuration+`s ease-in-out;
-    -moz-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
-
-    /* Firefox */
-    -webkit-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
-    /* Webkit */
-    -ms-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
-    /* IE */
-    animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
-    /* Opera */
-    -webkit-transition: background-color `+(2000*blinkDuration)+`ms linear;
-    -moz-transition: background-color `+(2000*blinkDuration)+`ms linear;
-    -o-transition: background-color `+(2000*blinkDuration)+`ms linear;
-    -ms-transition: background-color `+(2000*blinkDuration)+`ms linear;
-    transition: background-color `+(2000*blinkDuration)+`ms linear;
-    }`;
-    }
-    setBlinkDuration();
-    function setCaretRGB(color) {
-        let caretBlinkStyle = document.getElementById('pCaretBlinkStyle');
-        caretBlinkStyle.innerHTML = `
-    @keyframes blink2 {
-    0% {
-           background-color: rgba(`+color+`,`+maxOpacity+`)
-    }
-    50% {
-           background-color: rgba(`+color+`,`+minOpacity+`)
-    }
-    100% {
-           background-color: rgba(`+color+`,`+maxOpacity+`)
-    }
-}
-@-webkit-keyframes blink2 {
-    0% {
-           background-color: rgba(`+color+`,`+maxOpacity+`)
-    }
-    50% {
-           background-color: rgba(`+color+`,`+minOpacity+`)
-    }
-    100% {
-           background-color: rgba(`+color+`,`+maxOpacity+`)
-    }
-}
-    `
-    }
-    setCaretRGB(caretColor);
-    function setCaretDimensions() {
-        let caretThicknessStyle = document.getElementById('pCaretThicknessStyle');
-        let outputStyle;
-        if(caretType===0) {
-            outputStyle=`#pCaret {width: `+caretThickness+`ch;height: 1.5em;}`;
-            caretOffset=[0,0];
-            if(!responsiveTheme)
-                caretOffset=[0,2+offset];
-        }
-        else if(caretType===1) {
-            outputStyle=`#pCaret {width: 1.2ch;height: `+caretThickness+`em;`;
-            caretOffset=[0,20];
-        }
-        caretThicknessStyle.innerHTML = outputStyle;
-    }
-    setCaretDimensions();
-}
-createPCaret();
-
-
-function sleep(x) { // Wait for x ms
-    return new Promise(resolve => setTimeout(resolve, x));
-}
-
-async function animateCaret(lines, rects) {
-    if(lines.length!=rects.length) {
-        log('[animation] error: '+lines.length+' lines but '+rects.length+' rects', '#ff0000');
-        return;
-    }
-    let textDivContainer = document.querySelector('.inputPanel tbody tr td table tbody tr td div');
-    textDivContainer.appendChild(pCaret);
-    await sleep(start_time);
-    for(let i=0;i<lines.length;i++) {
-        if(!racing)
-            break;
-        let line=lines[i];
-        let character_count = line.length;
-        let [top, left, height, width]=rects[i];
-        let line_time = 12*character_count/pace-start_time/(1000*lines.length); //in s
-        log('[animation] Animating line (len='+character_count+'): "'+line+'"\nFrom top='+parseInt(top)+', left='+parseInt(left)+' over width='+parseInt(width)+' at pace='+pace+'wpm\nTime to line completion at pace = '+line_time.toFixed(2)+' seconds','#D3D3D3');
-        pCaret.style.transition='none';
-        pCaret.style.visibility='hidden';
-        pCaret.style.left=left+'px';
-        pCaret.style.top=top+'px';
-        pCaret.style.height=height+'px';
-        pCaret.style.visibility='visible';
-        await sleep(100);
-        pCaret.style.transition=(line_time-0.200).toString()+'s linear';
-        pCaret.style.left=(left+width).toString()+'px';
-        await sleep(1000*line_time-100);
-    }
-    log('[animation] done','#D3D3D3');
 }
 
 function getRenderedTextData() {
@@ -510,56 +481,9 @@ function getRenderedTextData() {
     rectList=rects;
 }
 
-function raceStart() {
-    log('racing');
 
 
-    pickPace(true);
-    if(showCaret)
-        animateCaret(lineList, rectList);
-}
-
-
-function pickPace(forced=false){
-    log('[pickpace] starting (forced='+forced+')','#D3D3D3');
-    let tempPace=targetPace;
-    if(useRank) {
-        if(rankPace==null&&!forced) {
-            log('[pickpace] failed: useRank=true, but no rankPace yet','#D3D3D3');
-            return;
-        }
-        if(rankPace>tempPace)
-            tempPace=rankPace;
-    }
-    if(usePb) {
-        if(pbPace==null&&!forced) {
-            log('[pickpace] failed: usePb=true, but no pbPace yet','#D3D3D3');
-            return;
-        }
-        if(pbPace>tempPace)
-            tempPace=pbPace;
-    }
-    pace=tempPace;
-    if(showFinal)
-        document.querySelector('#displayPace').innerText=parseFloat(pace).toFixed(DECIMAL_PLACES)+' WPM';
-}
-
-//WIP
-function raceEnd() {
-    log('no longer racing');
-    if(status=='customRoomGame'||status=='customRoom') {
-        await_updatePlayerProgress=true;
-        log('end of a private track race. Awaiting updatePlayerProgress with next text ID');
-    }
-    resetCaretAnimation();
-}
-
-function resetCaretAnimation() {
-    pCaret.style.transition='0s linear';
-    pCaret.style.visibility='hidden';
-    log('stopped pCaret transition');
-}
-
+//Monitoring Typeracer requests
 async function endpoints() {
     //ensure compatibility with Adjusted Speed 1.7.0 and further
     if (!XMLHttpRequest.prototype.oldSend) {
@@ -581,6 +505,31 @@ async function endpoints() {
             const leave_room_endpoint = "leaveRoom";
             const navigation_endpoints = join_game_endpoints+join_room_endpoints+[leave_game_endpoint,leave_room_endpoint];
 
+            if (endpoint === "updatePlayerProgress" && payload.startsWith("TLv1")) { //catch and store log
+                // let typingLog = payload.substring(0, payload.indexOf("\\!")).substringAfterNth(",", 3);
+                // let newTypingLog = payload.substring(payload.indexOf("\\!")+2);
+                // log('[endpoints] log:\n'+typingLog+'\nNew log:\n'+newTypingLog,'#D3D3D3');
+                this.addEventListener("load", function() {
+                    try {
+                        const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
+                        let resp_len = responseJSON.length;
+                        let gameStatus = ((document.getElementsByClassName('gameStatusLabel') || [])[0] || {}).innerHTML || '';
+                        if (gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')) {
+                            registered_speed = responseJSON[resp_len-19];
+                            log('full response JSON:\n'+responseJSON);
+                            log('[endpoints] caught registered_speed='+registered_speed,'#D3D3D3');
+                            // displayResult(registered_speed);
+                        }
+                        // registered_id = responseJSON[resp_len-17];
+                        // let points = responseJSON[resp_len-15];
+                        // let accuracy = responseJSON[resp_len-10];
+                        // log('[endpoints] registered speed='+registered_speed+'; points='+points+'; accuracy='+accuracy+'; id='+id,'#D3D3D3');
+                    }
+                    catch(error){
+                        log("[endpoints] error while getting log "+endpoint+" response: "+error+'\nResponse text: '+this.responseText,'#ff0000');
+                    }
+                });
+            }
             this.addEventListener("load", function() {
                 try {
                     let entered_new_game=false;
@@ -611,6 +560,7 @@ async function endpoints() {
                             log("[endpoints] entered new game",'#D3D3D3');
                             pbPace=null;
                             rankPace=null;
+                            registered_speed=null;
                             makeDisplay();
                             entered_new_game=true;
                             pickPace();
@@ -625,7 +575,7 @@ async function endpoints() {
                         }
                         status=new_status;
                         if(new_status=='standby'&&await_updatePlayerProgress) {
-                            log('No longer waiting for updatePlayerProgress');
+                            log('New status standby: no longer waiting for updatePlayerProgress');
                             await_updatePlayerProgress=false;
                         }
                     }
@@ -646,6 +596,7 @@ async function endpoints() {
                             await_updatePlayerProgress=false;
                             makeDisplay();
                             pbPace=null;
+                            registered_speed=null;
                             rankPace=null;
                             pickPace();
                             getTextData(text_id);
@@ -676,9 +627,255 @@ async function endpoints() {
         return XMLHttpRequest.prototype.oldSend.call(this, body);
     }
 }
-endpoints();
 
 
+
+
+// Creating/animating caret
+function createPCaret() {
+    pCaret=document.createElement('div');
+    pCaret.style.visibility='hidden';
+    pCaret.id='pCaret';
+    document.body.insertAdjacentHTML("beforeend",`<style>
+ #pCaret {
+  background-color: white;
+  position: absolute;
+  z-index:1000;
+  border-radius: 15%;
+}
+.box {
+  position: absolute !important;
+}
+#pCaretDisplay {
+background-color: rgba(0,0,0,0.7)!important;
+padding:10px;
+border-radius:5px;
+color: #ffffff!important;
+margin-bottom:10px;
+}
+</style>
+
+
+<style id='pCaretBlinkStyle'></style>
+<style id='pCaretThicknessStyle'></style>
+<style id='pCaretAnimationStyle'></style>`);
+    function setBlinkDuration() {
+        let caretAnimationStyle=document.getElementById('pCaretAnimationStyle');
+        caretAnimationStyle.innerHTML = `#pCaret{
+    -moz-transition:all `+blinkDuration+`s ease-in-out;
+    -webkit-transition:all `+blinkDuration+`s ease-in-out;
+    -o-transition:all `+blinkDuration+`s ease-in-out;
+    -ms-transition:all `+blinkDuration+`s ease-in-out;
+
+    transition:all `+blinkDuration+`s ease-in-out;
+    -moz-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
+
+    /* Firefox */
+    -webkit-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
+    /* Webkit */
+    -ms-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
+    /* IE */
+    animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
+    /* Opera */
+    -webkit-transition: background-color `+(2000*blinkDuration)+`ms linear;
+    -moz-transition: background-color `+(2000*blinkDuration)+`ms linear;
+    -o-transition: background-color `+(2000*blinkDuration)+`ms linear;
+    -ms-transition: background-color `+(2000*blinkDuration)+`ms linear;
+    transition: background-color `+(2000*blinkDuration)+`ms linear;
+    }`;
+    }
+    setBlinkDuration();
+    setCaretRGB(caretColor);
+    function setCaretDimensions() {
+        let caretThicknessStyle = document.getElementById('pCaretThicknessStyle');
+        let outputStyle;
+        if(caretType===0) {
+            outputStyle=`#pCaret {width: `+caretThickness+`ch;height: 1.5em;}`;
+            caretOffset=[0,0];
+            if(!responsiveTheme)
+                caretOffset=[0,2];
+        }
+        else if(caretType===1) {
+            outputStyle=`#pCaret {width: 1.2ch;height: `+caretThickness+`em;`;
+            caretOffset=[0,20];
+        }
+        caretThicknessStyle.innerHTML = outputStyle;
+    }
+    setCaretDimensions();
+}
+function setCaretRGB(color) {
+    let caretBlinkStyle = document.getElementById('pCaretBlinkStyle');
+    let maxOpacity = 0.7;
+    let minOpacity = 0.3;
+    caretBlinkStyle.innerHTML = `
+    @keyframes blink2 {
+    0% {
+           background-color: rgba(`+color+`,`+maxOpacity+`)
+    }
+    50% {
+           background-color: rgba(`+color+`,`+minOpacity+`)
+    }
+    100% {
+           background-color: rgba(`+color+`,`+maxOpacity+`)
+    }
+}
+@-webkit-keyframes blink2 {
+    0% {
+           background-color: rgba(`+color+`,`+maxOpacity+`)
+    }
+    50% {
+           background-color: rgba(`+color+`,`+minOpacity+`)
+    }
+    100% {
+           background-color: rgba(`+color+`,`+maxOpacity+`)
+    }
+}
+    `
+}
+
+async function animateCaret(lines, rects) {
+    if(lines.length!=rects.length) {
+        log('[animation] error: '+lines.length+' lines but '+rects.length+' rects', '#ff0000');
+        return;
+    }
+    let textDivContainer = document.querySelector('.inputPanel tbody tr td table tbody tr td div');
+    textDivContainer.appendChild(pCaret);
+    await sleep(start_time);
+    for(let i=0;i<lines.length;i++) {
+        if(!racing)
+            break;
+        let line=lines[i];
+        let character_count = line.length;
+        let [top, left, height, width]=rects[i];
+        let line_time = 12*character_count/pace-start_time/(1000*lines.length); //in s
+        log('[animation] Animating line (len='+character_count+'): "'+line+'"\nFrom top='+parseInt(top)+', left='+parseInt(left)+' over width='+parseInt(width)+' at pace='+pace+'wpm\nTime to line completion at pace = '+line_time.toFixed(2)+' seconds','#D3D3D3');
+        pCaret.style.transition='none';
+        pCaret.style.visibility='hidden';
+        pCaret.style.left=left+'px';
+        pCaret.style.top=top+'px';
+        pCaret.style.height=height+'px';
+        pCaret.style.visibility='visible';
+        await sleep(100);
+        pCaret.style.transition=(line_time-0.200).toString()+'s linear';
+        pCaret.style.left=(left+width).toString()+'px';
+        await sleep(1000*line_time-100);
+    }
+    log('[animation] done','#D3D3D3');
+}
+
+function resetCaretAnimation() {
+    pCaret.style.transition='0s linear';
+    pCaret.style.visibility='hidden';
+    log('stopped pCaret transition');
+}
+
+
+
+// Main logic
+function raceStart() {
+    log('racing');
+    pickPace(true);
+    if(showCaret)
+        animateCaret(lineList, rectList);
+}
+
+function raceEnd() {
+    log('no longer racing (UI)');
+    let temp_registered_speed = parseInt(document.querySelector('.rankPanelWpm-self').innerText);
+    log('[raceEnd] read UI registered speed = '+temp_registered_speed+'; latest known endpoint registered speed = '+registered_speed,'#D3D3D3');
+    if(Math.round(registered_speed)==temp_registered_speed&&(registered_speed%1!=0)) {
+        temp_registered_speed=registered_speed;
+        log('[raceEnd] replaced UI registered speed with more accurate log registered speed','#D3D3D3');
+    }
+    else {
+        log('[raceEnd] using UI registered speed','#D3D3D3');
+    }
+    displayResult(temp_registered_speed);
+    if(status=='customRoomGame'||status=='customRoom') {
+        await_updatePlayerProgress=true;
+        log('end of a private track race. Awaiting updatePlayerProgress with next text ID');
+    }
+    resetCaretAnimation();
+}
+
+function pickPace(forced=false){
+    log('[pickpace] starting (forced='+forced+')','#D3D3D3');
+    let tempPace=targetPace;
+    if(useTb&&text_best_average!=null&&tba_username!=null) {
+        log('[pickpace] replacing minimum pace ('+targetPace+') with tba ('+text_best_average+')','#D3D3D3');
+        tempPace=text_best_average;
+    }
+    else {
+        log('[pickpace] continuing with minimum pace ('+targetPace+')\nuseTb='+useTb+'; text_best_average='+text_best_average+'; tba_username='+tba_username,'#D3D3D3');
+    }
+    if(useRank) {
+        if(rankPace==null&&!forced) {
+            log('[pickpace] failed: useRank=true, but no rankPace yet','#D3D3D3');
+            return;
+        }
+        if(rankPace>tempPace)
+            tempPace=rankPace;
+    }
+    if(usePb) {
+        if(pbPace==null&&!forced) {
+            log('[pickpace] failed: usePb=true, but no pbPace yet','#D3D3D3');
+            return;
+        }
+        if(pbPace>tempPace&&pbPace!='none') {
+            tempPace=pbPace;
+        }
+    }
+    pace=tempPace;
+    log('[pickpace] Success: (forced='+forced+') : '+pace+' pace was picked','#D3D3D3');
+    if(showFinal)
+        document.querySelector('#displayPace').innerText=parseFloat(pace).toFixed(DECIMAL_PLACES)+' WPM';
+}
+
+
+
+
+
+// Fetching data from Typeracerdata
+function getTextBestAverage(user) {
+    log('[getTextBestAverage] getting tba for user '+user,'#D3D3D3');
+    let text_best_url = 'https://www.typeracerdata.com/profile?last=1&universe='+universe+'&username='+user;
+    log('[getTextBestAverage] text_best_url = '+text_best_url);
+    tba_username=user;
+    GM_xmlhttpRequest ( {
+        method: 'GET',
+        url: text_best_url,
+        onload: function (response) {
+            let responseHTML=response.responseText;
+			textBestProcess(responseHTML);
+        }
+    });
+
+    function textBestProcess(responseHTML) {
+        // log('[getTextBestAverage] full responseHTML:\n'+responseHTML);
+        const tbRegex=/<td>(.*) wpm \(.+total texts raced\)<\/td>/;
+        let tbMatch=tbRegex.exec(responseHTML);
+        if(tbMatch==null) {
+            log("[getTextBestAverage] couldn't find text best data for user="+user+", universe="+universe+" (match==null)",'#ff0000');
+            tba_username=null;
+            text_best_average=null;
+            if(update_tb_line) {
+                let useTbDisplay=document.getElementById('useTbDisplay');
+                if(useTbDisplay)
+                    useTbDisplay.innerText='Use text bests average as minimum pace: unknown';
+                update_tb_line=false;
+            }
+            return;
+        }
+        text_best_average=parseFloat(tbMatch[1]);
+        log('[getTextBestAverage] retrieved tba = '+text_best_average+' for user '+user,'#D3D3D3');
+        if(update_tb_line) {
+            let useTbDisplay=document.getElementById('useTbDisplay');
+            if(useTbDisplay)
+                useTbDisplay.innerText='Use text bests average as minimum pace: '+text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
+            update_tb_line=false;
+        }
+    }
+}
 
 async function getTextData(id) {
     log('[getdata] getting text data with id='+id,'#D3D3D3');
@@ -729,6 +926,7 @@ async function getTextData(id) {
             if(showPb) {
                 document.querySelector('#displayPb1').innerText='Personal best:';
                 document.querySelector('#displayPb2').innerText='No user selected!';
+                pbPace='none';
             }
             return;
         }
@@ -751,12 +949,6 @@ async function getTextData(id) {
 			pbProcess(responseHTML);
         }
     });
-    function capitalizeFirstLetter(string) {
-        if(string=='ginoo75') {
-            return string;
-        }
-        return string.charAt(0).toUpperCase() + string.slice(1);
-    }
     function pbProcess(responseHTML) {
         // log('[getdata] text history response text:\n'+responseHTML,'#D3D3D3');
         const emptyRegex=/(Sorry, that username has not yet completed any races on that text.)/;
@@ -767,7 +959,7 @@ async function getTextData(id) {
                 document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername);
                 document.querySelector('#displayPb2').innerText="hasn't completed this text yet!";
             }
-            pbPace=targetPace;
+            pbPace='none';
             pace=targetPace;
             return;
         }
@@ -785,15 +977,81 @@ async function getTextData(id) {
         if(showPb) {
             document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername)+"'s best:";
             document.querySelector('#displayPb2').innerText=pb_WPM.toFixed(DECIMAL_PLACES)+' WPM';
-            if(showDate)
-                document.querySelector('#displayDate').innerText=' ('+date+')';
+            if(showDate) {
+                let shortenedDate=date.split(' ')[0];
+                let displayDate=document.querySelector('#displayDate');
+                displayDate.innerText=' ('+shortenedDate+')';
+                displayDate.parentNode.parentNode.style.display='';
+            }
         }
         pbPace=pb_WPM;
         pickPace();
     }
 }
 
-let displayHTML=`<tbody><tr><td><span'>Text ID:</span></td><td><span style='padding-left: 50px;' id='displayId'>loading...</span></td></tr><tr><td><span>Minimum pace:</span></td><td><span style='padding-left: 50px;' id='displayDefault'>`+targetPace+` WPM</span></td></tr><tr><td><span id='displayPb1'>Pb:</span></td><td><span style='padding-left: 50px;' id='displayPb2'></span><span id='displayDate'></span></td></tr><tr><td><span id='displayRank1'>#`+targetRank+`:</span></td><td><span style='padding-left: 50px;' id='displayRank2'>loading...</span></td></tr><tr><td><span style='font-weight:bold;'>Pace to beat:</span></td><td><span id='displayPace' style='padding-left: 50px; font-weight:bold;'>loading...</span></td></tr></tbody>`;
+
+
+
+// Custom HTML
+let displayHTML=`
+<thead'>
+  <tr>
+    <td>
+      <span'>Text ID:</span>
+    </td>
+    <td>
+      <span style='padding-left: 50px;' id='displayId'>loading...</span>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <span id='defaultSpan'>Minimum pace:</span>
+    </td>
+    <td>
+      <span style='padding-left: 50px;' id='displayDefault'>`+targetPace+` WPM</span>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <span id='displayPb1'>Loading...</span>
+    </td>
+    <td>
+      <span style='padding-left: 50px;' id='displayPb2'></span>
+    </td>
+  </tr>
+  <tr style='display: none'>
+    <td></td>
+    <td>
+      <span style='padding-left: 50px;' id='displayDate'></span>
+    </td>
+  </tr>
+  <tr style='display: none'>
+    <td></td>
+    <td>
+      <span style='padding-left: 50px;' id='displayLagged'></span>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <span id='displayRank1'>#`+targetRank+`:</span>
+    </td>
+    <td>
+      <span style='padding-left: 50px;' id='displayRank2'>loading...</span>
+    </td>
+  </tr>
+</thead>
+<hr id='pCaretHr'>
+<tbody>
+  <tr>
+    <td>
+      <span style='font-weight:bold;'>Pace to beat:</span>
+    </td>
+    <td>
+      <span id='displayPace' style='padding-left: 50px; font-weight:bold;'>loading...</span>
+    </td>
+  </tr>
+</tbody>
+`;
 function makeDisplay() {
     let section=document.querySelector('.gameStatusLabel').parentNode;
     displayDiv = document.createElement('table');
@@ -801,6 +1059,14 @@ function makeDisplay() {
     displayDiv.innerHTML = displayHTML;
     log('added display div','#D3D3D3');
     section.appendChild(displayDiv);
+    document.querySelector('#displayDefault').innerText=targetPace+' WPM';
+    if(useTb&&text_best_average!=null&&tba_username!=null) {
+        document.querySelector('#displayDefault').innerText=text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
+        let tempUsername=targetUsername;
+        if(tempUsername=='')
+            tempUsername=username;
+        document.querySelector('#defaultSpan').innerText=capitalizeFirstLetter(tempUsername)+"'s text bests average:";
+    }
     if(!showId)
         document.querySelector('#displayId').parentNode.parentNode.remove();
     if(!showDefault)
@@ -808,12 +1074,49 @@ function makeDisplay() {
     if(!showPb)
         document.querySelector('#displayPb1').parentNode.parentNode.remove();
     if(showPb&&!showDate)
-        document.querySelector('#displayDate').remove();
+        document.querySelector('#displayDate').parentNode.parentNode.remove();
     if(!showRank)
         document.querySelector('#displayRank1').parentNode.parentNode.remove();
-    if(!showFinal)
+    if(!showFinal) {
         document.querySelector('#displayPace').parentNode.parentNode.remove();
+        document.querySelector('#pCaretHr').remove();
+    }
     if(!showId&&!showDefault&&!showPb&&!showRank&&!showFinal) {
         displayDiv.remove();
     }
 }
+function displayResult(lagged_speed) {
+    log('[displayResult] displaying lagged result = '+lagged_speed,'#D3D3D3');
+    let displayLagged=document.querySelector('#displayLagged');
+    let displayPb1 = document.querySelector('#displayPb1');
+    let displayPb2 = document.querySelector('#displayPb2');
+    if(!displayLagged)
+        return;
+    if(pbPace=='none') {
+        if(isGuest)
+            return;
+        log('[displayResult] first known quote completion. New pb = lagged = '+lagged_speed+'; username='+capitalizeFirstLetter(username),'#D3D3D3');
+        displayPb1.innerHTML=capitalizeFirstLetter(username)+"'s best:";
+        displayPb2.innerHTML='&rarr; '+lagged_speed.toFixed(DECIMAL_PLACES)+' WPM';
+    }
+    else {
+        log('[displayResult] new quote completion. Previous pb = '+pbPace+'; lagged = '+lagged_speed,'#D3D3D3');
+        let output=''; //'&rarr; '+lagged_speed.toFixed(DECIMAL_PLACES)+' WPM';
+        if(lagged_speed>pbPace) {
+            displayLagged.parentNode.parentNode.style.display='';
+            output+="<span style='color: green'>+ "+(lagged_speed-pbPace).toFixed(DECIMAL_PLACES)+'</span>';
+            document.getElementById('pCaretDisplay').style.borderLeft='solid green';
+        }
+        displayLagged.innerHTML=output;
+    }
+}
+
+
+
+
+// Main
+load_settings();
+addConfig();
+setInterval(clock, GUI_INTERVAL);
+createPCaret();
+endpoints();
