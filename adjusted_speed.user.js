@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.8.1
+// @version      1.8.2
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -20,7 +20,7 @@
 
 
 /*=========SETTINGS=============*/
-const SHOW_DESSLEJUSTED = false;
+const SHOW_DESSLEJUSTED = true;
 const DEBUG=true;
 /*==============================*/
 
@@ -922,7 +922,7 @@ function eugeneIsSmart(new_log_contents) {
         if (SHOW_DESSLEJUSTED) {
             ds_html = '<tr><td>Desslejusted</td><td>' + desslejusted + ' WPM</td></tr><tr><td></td><td>' + raw_desslejusted_speed + ' raw</td></tr>';
         }
-        document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span><td>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM</td><td>(ping: ' + ping + 'ms; <span id="adjpingspan">adjusted ping: '+newping+' ms</span>)</td></tr><tr><td></td><td>' + raw_speed + ' raw</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM</td><td>(start: ' + start_time_ms + 'ms)</td></tr><tr><td></td><td>' + raw_adjusted_speed + ' raw</td></tr>' + ds_html + '<br>';
+        document.querySelector('.raceDetails > tbody > tr:nth-child(' + univ_index + ')').outerHTML = '<br><tr><td>Registered</td><td style="position: relative;' + reverse_lag_style + '"><span>' + registered_speed + ' WPM</span><td>' + ghost_button_html + '</td></tr><tr><td>Unlagged</td><td>' + unlagged_speed + ' WPM</td><td>(ping: ' + ping + 'ms)</td></tr><tr><td></td><td>' + raw_speed + ' raw</td></tr><tr><td>Adjusted</td><td>' + adjusted_speed + ' WPM</td><td>(start: ' + start_time_ms + 'ms; <span id="adjpingspan">adjusted ping: '+newping+' ms</span>)</td></tr><tr><td></td><td>' + raw_adjusted_speed + ' raw</td></tr>' + ds_html + '<br>';
         if(newping<0) {
             document.getElementById('adjpingspan').style.color='red';
         }
