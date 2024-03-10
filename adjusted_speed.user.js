@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.8.2
+// @version      1.8.3
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -423,7 +423,7 @@ function eugeneIsSmart(new_log_contents) {
             }
 
 
-            let newping=Math.round(12000 * quote_length*(1/registered_speed-1/adjusted_speed));
+            let newping=Math.round(12000 * (quote_length-1)*(1/registered_speed-1/adjusted_speed));
 
 
             partialAdjusteds.push(adjusted_speed);
