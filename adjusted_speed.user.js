@@ -20,8 +20,8 @@
 
 
 /*=========SETTINGS=============*/
-const SHOW_DESSLEJUSTED = true;
-const DEBUG=true;
+const SHOW_DESSLEJUSTED = false;
+const DEBUG=false;
 /*==============================*/
 
 // What is the difficulty metric? http://bit.ly/typeracertextdifficulty
@@ -397,7 +397,9 @@ function eugeneIsSmart(new_log_contents) {
             }
 
             let lagged_time = Math.round(12000 * quote_length/registered_speed);
+            let adjusted_lagged_time = Math.round(12000 * (quote_length-1)/registered_speed);
             let ping = lagged_time-total_time;
+            let newping=adjusted_lagged_time-total_time+start
 
 
             log('lagged time = '+lagged_time+' ms; ping = '+ping+' ms');
@@ -423,7 +425,6 @@ function eugeneIsSmart(new_log_contents) {
             }
 
 
-            let newping=Math.round(12000 * (quote_length-1)*(1/registered_speed-1/adjusted_speed));
 
 
             partialAdjusteds.push(adjusted_speed);
@@ -447,7 +448,10 @@ function eugeneIsSmart(new_log_contents) {
                 correctionTime: correction_time,
                 correctionRatio: correction_ratio,
                 ping: ping,
-                newping: newping
+                newping: newping,
+                total_log_time: total_time,
+                registered_time: lagged_time,
+                adjusted_registered_time:adjusted_lagged_time,
             }
             return data;
         }
@@ -573,7 +577,7 @@ function eugeneIsSmart(new_log_contents) {
 
             let unlaggedResult = speeds.unlagged.toFixed(DEC_PLACES) + ' wpm';
             let adjustedResult = speeds.adjusted.toFixed(DEC_PLACES+1) + ' wpm';
-            let startResult = speeds.start + 'ms';
+            let startResult = speeds.start + ' ms';
 
             let rawUnlaggedResult = speeds.rawUnlagged.toFixed(DEC_PLACES) + ' raw';
             let rawAdjustedResult = speeds.rawAdjusted.toFixed(DEC_PLACES+1) + ' raw';
@@ -625,7 +629,7 @@ function eugeneIsSmart(new_log_contents) {
 
             else{
                 let ratioAccuracy = (Math.round(speeds.correctionRatio*Math.pow(10,DEC_PLACES+2))/100).toString()+' %';
-            let ratioAndOldAccuracy = ratioAccuracy+' ('+(Math.round(accuracy*Math.pow(10,DEC_PLACES+2))/100).toString()+' % TR accuracy)';
+                let ratioAndOldAccuracy = ratioAccuracy+'<br><span style="font-weight:normal; font-size:16px">('+(Math.round(accuracy*Math.pow(10,DEC_PLACES+2))/100).toString()+' % TR accuracy)</span>';
 
             accuracyResult = ratioAndOldAccuracy;
             accuracyTitle = document.querySelector('.tblOwnStats > tbody > tr:nth-child(3) > td:first-child');
@@ -652,31 +656,34 @@ function eugeneIsSmart(new_log_contents) {
             let unlaggedLine;
             let rawUnlaggedLine;
             let pingLine;
+            let startLine;
             if(status.room == 'ghost'|| status.room == 'practice') {
                 unlaggedLine = getElementFromString('tr', '<td><s>Unlagged:</s></td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><s><span class="unlagged">' + unlaggedResult + '</span></s></div></td>');
                 rawUnlaggedLine = getElementFromString('tr', '<td></td><td><div class="rawUnlaggedDisplay tblOwnStatsNumber" style=""><s><span class="rawUnlagged" style="font-weight:normal;">' + rawUnlaggedResult + '</span></s></div></td>');
-                pingLine = getElementFromString('tr', '<td>Adjusted ping:</td><td><div class="pingDisplay tblOwnStatsNumber" style=""><span class="ping">' + newPingResult + '</span></div></td>');
+                pingLine = getElementFromString('tr', '<td><s>Ping:</s></td><td><div class="pingDisplay tblOwnStatsNumber" style=""><s><span class="ping">' + pingResult + '</span></s></div></td>');
+                startLine = getElementFromString('tr', '<td style="vertical-align: top!important;">Adjusted delays:</td><td class="tblOwnStatsNumber" id="adjDelaysTd" style="font-size:16px; font-weight:normal;padding-left:10px;">log: ' + (speeds.total_log_time-speeds.start) + ' ms<br>registered: '+ speeds.adjusted_registered_time+' ms<br><span id="adjPingTag">\"ping\" = '+speeds.newping+' ms</span></td>');
+                // pingLine = getElementFromString('tr', '<td>Adjusted ping:</td><td><div class="pingDisplay tblOwnStatsNumber" style=""><span class="ping">' + newPingResult + '</span></div></td>');
             }
             else {
-                unlaggedLine = getElementFromString('tr', '<td><Unlagged:</td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><span class="unlagged">' + unlaggedResult + '</span></div></td>');
+                unlaggedLine = getElementFromString('tr', '<td>Unlagged:</td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><span class="unlagged">' + unlaggedResult + '</span></div></td>');
                 rawUnlaggedLine = getElementFromString('tr', '<td></td><td><div class="rawUnlaggedDisplay tblOwnStatsNumber" style=""><span class="rawUnlagged" style="font-weight:normal;">' + rawUnlaggedResult + '</span></div></td>');
                 pingLine = getElementFromString('tr', '<td>Ping:</td><td><div class="pingDisplay tblOwnStatsNumber" style=""><span class="ping">' + pingResult + '</span></div></td>');
+                startLine = getElementFromString('tr', '<td>Start:</td><td><div class="startDisplay tblOwnStatsNumber" style=""><span class="start">' + startResult + '</span></div></td>');
             }
-            let startLine = getElementFromString('tr', '<td>Start:</td><td><div class="startDisplay tblOwnStatsNumber" style=""><span class="start">' + startResult + '</span></div></td>');
 
 
-            let difficultyLine=null;
-                try {
-                    let relative_average = await getLatestDifficulty(id); // TODO: try/catch
-                    //                     log("relative average: "+relative_average);
-                    let [difficulty, delta_diff] = relativeAverageToDifficulty(relative_average);
-                    log('DIFF='+difficulty+'; DELTA_DIFF='+delta_diff);
-                    difficultyLine = getElementFromString('tr', '<td>Difficulty:</td><td><div class="difficultyDisplay tblOwnStatsNumber" style=""><span class="difficulty">' + difficulty +' ('+delta_diff+')</span></div></td>');
-                    insertAfter(difficultyLine,pointsTag.parentNode.parentNode.parentNode);
-                }
-                catch(e) {
-                    log(e);
-                }
+            // let difficultyLine=null; //disabled, trdata's relative avg value seems inaccurate since quotes were mass-disabled from maintrack
+            //     try {
+            //         let relative_average = await getLatestDifficulty(id); // TODO: try/catch
+            //         //                     log("relative average: "+relative_average);
+            //         let [difficulty, delta_diff] = relativeAverageToDifficulty(relative_average);
+            //         log('DIFF='+difficulty+'; DELTA_DIFF='+delta_diff);
+            //         difficultyLine = getElementFromString('tr', '<td>Difficulty:</td><td><div class="difficultyDisplay tblOwnStatsNumber" style=""><span class="difficulty">' + difficulty +' ('+delta_diff+')</span></div></td>');
+            //         insertAfter(difficultyLine,pointsTag.parentNode.parentNode.parentNode);
+            //     }
+            //     catch(e) {
+            //         log(e);
+            //     }
 
 
             let adjustedStyle = '';
@@ -699,16 +706,22 @@ function eugeneIsSmart(new_log_contents) {
             let rawAdjustedLine = getElementFromString('tr', '<td></td><td><div class="rawAdjustedDisplay tblOwnStatsNumber" style=""><span class="rawAdjusted" style = "font-weight:normal;">' + rawAdjustedResult + '</span></div></td>');
 
 
-            insertAfter(pingLine,timeLine);
+            if(!(status.room == 'ghost'|| status.room == 'practice'))
+                insertAfter(pingLine,timeLine);
 
             tblOwnStatsBody.insertBefore(document.createElement('br'), timeLine);
-            tblOwnStatsBody.insertBefore(unlaggedLine, timeLine);
-            if(speeds.unlagged!=speeds.rawUnlagged)
-                tblOwnStatsBody.insertBefore(rawUnlaggedLine, timeLine);
+            if(!(status.room == 'ghost'|| status.room == 'practice')) {
+                tblOwnStatsBody.insertBefore(unlaggedLine, timeLine);
+                if(speeds.unlagged!=speeds.rawUnlagged)
+                    tblOwnStatsBody.insertBefore(rawUnlaggedLine, timeLine);
+            }
             tblOwnStatsBody.insertBefore(adjustedLine, timeLine);
             if(speeds.unlagged!=speeds.rawUnlagged)
                 tblOwnStatsBody.insertBefore(rawAdjustedLine, timeLine);
             tblOwnStatsBody.insertBefore(startLine, timeLine);
+            if(speeds.newping<0&&(status.room == 'ghost'|| status.room == 'practice')) {
+                document.getElementById('adjPingTag').style.color='#ff0000';
+            }
             tblOwnStatsBody.insertBefore(document.createElement('br'), timeLine);
             unlaggedLine.style.backgroundImage = 'none';
             adjustedLine.style.backgroundImage = 'none';
@@ -864,7 +877,7 @@ function eugeneIsSmart(new_log_contents) {
 
         let t_total_lagged = quote_length / registered_speed; // s/12
         let ping = Math.round((t_total_lagged - t_total / 12000) * 12000); // ms
-        let newping=Math.round(12000 * quote_length*(1/registered_speed-1/adjusted_speed));
+        let newping=Math.round(12000 * (quote_length-1)*(1/registered_speed-1/adjusted_speed));
 
         let reverse_lag_style = '';
         if (unlagged_speed < registered_speed)
@@ -906,17 +919,17 @@ function eugeneIsSmart(new_log_contents) {
         pointsRow.innerHTML = '<td>Points</td><td>' + points + '</td>';
         document.querySelector('.raceDetails > tbody').appendChild(pointsRow);
 
-        try {
-        let relative_average = await getLatestDifficulty(text_id); // TODO: try/catch
-        //                     log("relative average: "+relative_average);
-        let [difficulty, delta_diff] = relativeAverageToDifficulty(relative_average);
-            let avgDifficultyRow = document.createElement("tr");
-        avgDifficultyRow.innerHTML = '<td>Difficulty</td><td>' + difficulty + '</td><td>('+delta_diff+')</td>';
-        document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
-        }
-        catch(e) {
-            log(e);
-        }
+        // try {
+        // let relative_average = await getLatestDifficulty(text_id); // TODO: try/catch
+        // //                     log("relative average: "+relative_average);
+        // let [difficulty, delta_diff] = relativeAverageToDifficulty(relative_average);
+        //     let avgDifficultyRow = document.createElement("tr");
+        // avgDifficultyRow.innerHTML = '<td>Difficulty</td><td>' + difficulty + '</td><td>('+delta_diff+')</td>';
+        // document.querySelector('.raceDetails > tbody').appendChild(avgDifficultyRow);
+        // }
+        // catch(e) {
+        //     log(e);
+        // }
 
         let ds_html = '';
         if (SHOW_DESSLEJUSTED) {
