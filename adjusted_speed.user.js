@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.8.3
+// @version      1.8.4
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -631,9 +631,10 @@ function eugeneIsSmart(new_log_contents) {
                 let ratioAccuracy = (Math.round(speeds.correctionRatio*Math.pow(10,DEC_PLACES+2))/100).toString()+' %';
                 let ratioAndOldAccuracy = ratioAccuracy+'<br><span style="font-weight:normal; font-size:16px">('+(Math.round(accuracy*Math.pow(10,DEC_PLACES+2))/100).toString()+' % TR accuracy)</span>';
 
-            accuracyResult = ratioAndOldAccuracy;
-            accuracyTitle = document.querySelector('.tblOwnStats > tbody > tr:nth-child(3) > td:first-child');
-            accuracyTitle.innerHTML = 'Correction time:';
+                accuracyResult = ratioAndOldAccuracy;
+                accuracyTitle = document.querySelector('.tblOwnStats > tbody > tr:nth-child(3) > td:first-child');
+                accuracyTitle.innerHTML = 'Correction time:';
+                accuracyTitle.setAttribute('style', 'vertical-align: top!important');
             }
 
 
@@ -661,7 +662,7 @@ function eugeneIsSmart(new_log_contents) {
                 unlaggedLine = getElementFromString('tr', '<td><s>Unlagged:</s></td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><s><span class="unlagged">' + unlaggedResult + '</span></s></div></td>');
                 rawUnlaggedLine = getElementFromString('tr', '<td></td><td><div class="rawUnlaggedDisplay tblOwnStatsNumber" style=""><s><span class="rawUnlagged" style="font-weight:normal;">' + rawUnlaggedResult + '</span></s></div></td>');
                 pingLine = getElementFromString('tr', '<td><s>Ping:</s></td><td><div class="pingDisplay tblOwnStatsNumber" style=""><s><span class="ping">' + pingResult + '</span></s></div></td>');
-                startLine = getElementFromString('tr', '<td style="vertical-align: top!important;">Adjusted delays:</td><td class="tblOwnStatsNumber" id="adjDelaysTd" style="font-size:16px; font-weight:normal;padding-left:10px;">log: ' + (speeds.total_log_time-speeds.start) + ' ms<br>registered: '+ speeds.adjusted_registered_time+' ms<br><span id="adjPingTag">\"ping\" = '+speeds.newping+' ms</span></td>');
+                startLine = getElementFromString('tr', '<td style="vertical-align: top!important;">Adjusted delays:</td><td class="tblOwnStatsNumber" id="adjDelaysTd" style="font-size:16px; font-weight:normal;padding-left:15px;white-space: nowrap;overflow:visible;">log: ' + (speeds.total_log_time-speeds.start) + ' ms<br>registered: '+ speeds.adjusted_registered_time+' ms<br><span id="adjPingTag">\"ping\" = '+speeds.newping+' ms</span></td>');
                 // pingLine = getElementFromString('tr', '<td>Adjusted ping:</td><td><div class="pingDisplay tblOwnStatsNumber" style=""><span class="ping">' + newPingResult + '</span></div></td>');
             }
             else {
