@@ -1,4 +1,4 @@
 function main() {
-  console.log('Hello world!');
+  log('Hello world!','lightgreen');
 }
 main();
