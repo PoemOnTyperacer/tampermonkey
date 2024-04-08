@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.8.4
+// @version      1.8.6
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -399,10 +399,10 @@ function eugeneIsSmart(new_log_contents) {
             let lagged_time = Math.round(12000 * quote_length/registered_speed);
             let adjusted_lagged_time = Math.round(12000 * (quote_length-1)/registered_speed);
             let ping = lagged_time-total_time;
-            let newping=adjusted_lagged_time-total_time+start
+            let newping=adjusted_lagged_time-total_time+start;
 
 
-            log('lagged time = '+lagged_time+' ms; ping = '+ping+' ms');
+            log('lagged time = '+Math.round(lagged_time)+' ms; ping = '+ping+' ms');
             let verif = tot_time-total_time;
             if(verif!=0) {
                 //window.alert('verif; tot_time-total_time = '+(tot_time-total_time).toString());
@@ -662,7 +662,8 @@ function eugeneIsSmart(new_log_contents) {
                 unlaggedLine = getElementFromString('tr', '<td><s>Unlagged:</s></td><td><div class="unlaggedDisplay tblOwnStatsNumber" style=""><s><span class="unlagged">' + unlaggedResult + '</span></s></div></td>');
                 rawUnlaggedLine = getElementFromString('tr', '<td></td><td><div class="rawUnlaggedDisplay tblOwnStatsNumber" style=""><s><span class="rawUnlagged" style="font-weight:normal;">' + rawUnlaggedResult + '</span></s></div></td>');
                 pingLine = getElementFromString('tr', '<td><s>Ping:</s></td><td><div class="pingDisplay tblOwnStatsNumber" style=""><s><span class="ping">' + pingResult + '</span></s></div></td>');
-                startLine = getElementFromString('tr', '<td style="vertical-align: top!important;">Adjusted delays:</td><td class="tblOwnStatsNumber" id="adjDelaysTd" style="font-size:16px; font-weight:normal;padding-left:15px;white-space: nowrap;overflow:visible;">log: ' + (speeds.total_log_time-speeds.start) + ' ms<br>registered: '+ speeds.adjusted_registered_time+' ms<br><span id="adjPingTag">\"ping\" = '+speeds.newping+' ms</span></td>');
+                // startLine = getElementFromString('tr', '<td style="vertical-align: top!important;">Delays (n-1):</td><td class="tblOwnStatsNumber" id="adjDelaysTd" style="font-size:16px; font-weight:normal;padding-left:15px;white-space: nowrap;overflow:visible;">log: ' + (speeds.total_log_time/*-speeds.start*/) + ' ms<br>registered: '+ speeds.adjusted_registered_time+' ms<br><span id="adjPingTag">\"ping\" = '+speeds.newping+' ms</span><br><span id="pracStartTag">start = '+speeds.start+' ms</span></td>');
+                startLine = getElementFromString('tr', '<td style="vertical-align: top!important;"</td><td class="tblOwnStatsNumber" id="adjDelaysTd" style="font-size:16px; font-weight:normal;padding-left:15px;white-space: nowrap;overflow:visible;"><span id="adjPingTag">\"ping\" = '+speeds.newping+' ms</span></td>');
                 // pingLine = getElementFromString('tr', '<td>Adjusted ping:</td><td><div class="pingDisplay tblOwnStatsNumber" style=""><span class="ping">' + newPingResult + '</span></div></td>');
             }
             else {
@@ -877,8 +878,14 @@ function eugeneIsSmart(new_log_contents) {
         //                     registered_speed = 69.79;
 
         let t_total_lagged = quote_length / registered_speed; // s/12
+
         let ping = Math.round((t_total_lagged - t_total / 12000) * 12000); // ms
-        let newping=Math.round(12000 * (quote_length-1)*(1/registered_speed-1/adjusted_speed));
+        let lagged_time_ms = t_total_lagged*12000;
+        let lagged_time_ms_minus_one = (quote_length -1)/registered_speed*12000;
+
+        let newping=Math.round(lagged_time_ms_minus_one-t_total+start);
+        console.log('lagged time = '+Math.round(lagged_time_ms)+'; total time = '+t_total+' "ping" = '+ping);
+        console.log('n-1 lagged = '+Math.round(lagged_time_ms_minus_one)+'; total_time = '+t_total+' n-1 "ping" = '+Math.round(lagged_time_ms_minus_one-t_total));
 
         let reverse_lag_style = '';
         if (unlagged_speed < registered_speed)
