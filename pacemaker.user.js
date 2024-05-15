@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.10
+// @version      1.11
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -20,7 +20,7 @@
 
 // Debug settings
 let DEBUG = false;
-let DECIMAL_PLACES=0;
+let DECIMAL_PLACES=2;
 let start_time=300; //ms
 const showDebugRectangles=false;
 const GUI_INTERVAL = 100;
@@ -65,6 +65,7 @@ let pace=targetPace;
 let username=null;
 let isGuest=null;
 let racing=false;
+let awaitRacing=false;
 let status='standby';
 let await_updatePlayerProgress=false;
 let text_id=null;
@@ -88,7 +89,7 @@ let caretOffset=[];
 // log and utility
 function log(msg, color='#7DF9FF') {
     if(DEBUG)
-        console.log('%c [Pace caret] '+msg, 'color: '+color);
+        console.log('%c [Pacemaker] '+msg, 'color: '+color);
 }
 function logSettings() {
     log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
@@ -306,8 +307,17 @@ function clock() { // Determine: is guest/username/is racing
     let gameStatusLabels = document.getElementsByClassName('gameStatusLabel');
     let gameStatus = ((gameStatusLabels || [])[0] || {}).innerHTML || '';
     if(!racing&&(gameStatusLabels.length>0 && ( gameStatus == 'Go!' || gameStatus.startsWith('The race is on') ))) {
-        racing = true;
-        raceStart();
+        let practiceTitleEl = document.getElementsByClassName('roomSection')[0];
+        if(practiceTitleEl&&practiceTitleEl.innerText.startsWith('Practice')) {
+            if(!awaitRacing) {
+                awaitRacing=true;
+                log('waiting for user to begin practice race');
+            }
+        }
+        else {
+            racing = true;
+            raceStart();
+        }
     }
     if(racing&&((gameStatusLabels.length==0) || (document.getElementsByClassName('rank')[0].innerText=='Done!'||document.getElementsByClassName('rank')[0].innerText.includes('Place')/*gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')*/))){
         racing = false;
@@ -505,10 +515,16 @@ async function endpoints() {
             const leave_room_endpoint = "leaveRoom";
             const navigation_endpoints = join_game_endpoints+join_room_endpoints+[leave_game_endpoint,leave_room_endpoint];
 
+            if(endpoint=="startGameTask"&&awaitRacing) {
+                awaitRacing=false;
+                racing=true;
+                log('user started practice race');
+                raceStart();
+            }
             if (endpoint === "updatePlayerProgress" && payload.startsWith("TLv1")) { //catch and store log
-                // let typingLog = payload.substring(0, payload.indexOf("\\!")).substringAfterNth(",", 3);
-                // let newTypingLog = payload.substring(payload.indexOf("\\!")+2);
-                // log('[endpoints] log:\n'+typingLog+'\nNew log:\n'+newTypingLog,'#D3D3D3');
+                let typingLog = payload.substring(0, payload.indexOf("\\!")).substringAfterNth(",", 3);
+                let newTypingLog = payload.substring(payload.indexOf("\\!")+2);
+                log('[endpoints] log:\n'+typingLog+'\nNew log:\n'+newTypingLog,'#D3D3D3');
                 this.addEventListener("load", function() {
                     try {
                         const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
@@ -781,7 +797,13 @@ function raceStart() {
 
 function raceEnd() {
     log('no longer racing (UI)');
-    let temp_registered_speed = parseInt(document.querySelector('.rankPanelWpm-self').innerText);
+    resetCaretAnimation();
+    let rankPanelEl = document.querySelector('.rankPanelWpm-self');
+    if(!rankPanelEl) {
+        log('[raceEnd] no rank panel found. Ending function');
+        return;
+    }
+    let temp_registered_speed = parseInt(rankPanelEl.innerText);
     log('[raceEnd] read UI registered speed = '+temp_registered_speed+'; latest known endpoint registered speed = '+registered_speed,'#D3D3D3');
     if(Math.round(registered_speed)==temp_registered_speed&&(registered_speed%1!=0)) {
         temp_registered_speed=registered_speed;
@@ -794,8 +816,7 @@ function raceEnd() {
     if(status=='customRoomGame'||status=='customRoom') {
         await_updatePlayerProgress=true;
         log('end of a private track race. Awaiting updatePlayerProgress with next text ID');
-    }
-    resetCaretAnimation();
+    }   
 }
 
 function pickPace(forced=false){
@@ -1105,7 +1126,7 @@ function displayResult(lagged_speed) {
         if(lagged_speed>pbPace) {
             displayLagged.parentNode.parentNode.style.display='';
             output+="<span style='color: green'>+ "+(lagged_speed-pbPace).toFixed(DECIMAL_PLACES)+'</span>';
-            document.getElementById('pCaretDisplay').style.borderLeft='solid green';
+            document.getElementById('pCaretDisplay').style.borderLeft='3px solid green';
         }
         displayLagged.innerHTML=output;
     }
