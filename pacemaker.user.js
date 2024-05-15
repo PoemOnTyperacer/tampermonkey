@@ -663,7 +663,7 @@ function createPCaret() {
   position: absolute !important;
 }
 #pCaretDisplay {
-background-color: transparent/*rgba(0,0,0,0.7)*/!important;
+background-color: rgba(0,0,0,0.7)!important;
 padding:10px;
 border-radius:5px;
 color: #ffffff!important;
