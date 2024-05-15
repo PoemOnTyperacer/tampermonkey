@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.11
+// @version      1.12
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -663,11 +663,12 @@ function createPCaret() {
   position: absolute !important;
 }
 #pCaretDisplay {
-background-color: rgba(0,0,0,0.7)!important;
+background-color: transparent/*rgba(0,0,0,0.7)*/!important;
 padding:10px;
 border-radius:5px;
 color: #ffffff!important;
 margin-bottom:10px;
+border: 3px solid white;
 }
 </style>
 
