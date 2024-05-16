@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.12
+// @version      1.13
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -663,12 +663,11 @@ function createPCaret() {
   position: absolute !important;
 }
 #pCaretDisplay {
-background-color: rgba(0,0,0,0.7)!important;
+background-color: transparent/*rgba(0,0,0,0.7)*/!important;
 padding:10px;
 border-radius:5px;
-color: #ffffff!important;
 margin-bottom:10px;
-border: 3px solid white;
+border: 3px solid transparent;
 }
 </style>
 
@@ -1079,8 +1078,28 @@ function makeDisplay() {
     displayDiv = document.createElement('table');
     displayDiv.id='pCaretDisplay';
     displayDiv.innerHTML = displayHTML;
-    log('added display div','#D3D3D3');
     section.appendChild(displayDiv);
+    log('[makeDisplay] added display div','#D3D3D3');
+
+    // Find background color
+    let target = displayDiv;
+    while (target !== document.body && window.getComputedStyle(target).backgroundColor === 'rgba(0, 0, 0, 0)') {
+        target = target.parentElement;
+    }
+    const bgColor = window.getComputedStyle(target).backgroundColor;
+    let rgb = bgColor.match(/\d+/g).map(Number);
+    log('[makeDisplay] background color = '+rgb,'#D3D3D3');
+
+    // Set display color for highest contrast
+    let luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+    let d = luminance > 128 ? 0 : 255;
+    let contrastColor= `rgb(${d}, ${d}, ${d})`;
+    log('[makeDisplay] contrast color = '+contrastColor,'#D3D3D3');
+    displayDiv.style.color = contrastColor;
+    displayDiv.style.borderColor = contrastColor;
+
+
+    // Fill display and remove sections according to settings
     document.querySelector('#displayDefault').innerText=targetPace+' WPM';
     if(useTb&&text_best_average!=null&&tba_username!=null) {
         document.querySelector('#displayDefault').innerText=text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
@@ -1107,6 +1126,7 @@ function makeDisplay() {
         displayDiv.remove();
     }
 }
+
 function displayResult(lagged_speed) {
     log('[displayResult] displaying lagged result = '+lagged_speed,'#D3D3D3');
     let displayLagged=document.querySelector('#displayLagged');
