@@ -21,7 +21,7 @@
 // Debug settings
 let DEBUG = false;
 let DECIMAL_PLACES=2;
-let start_time=300; //ms
+let start_time=0; //ms
 const showDebugRectangles=false;
 const GUI_INTERVAL = 100;
 
