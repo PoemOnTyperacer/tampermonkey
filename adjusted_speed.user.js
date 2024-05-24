@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Adjusted speed
 // @namespace    http://tampermonkey.net/
-// @version      1.8.6
+// @version      1.8.7
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/adjusted_speed.user.js
 // @description  Adds the Adjusted speed metric (among other things) to race end and race details pages
@@ -767,6 +767,8 @@ function eugeneIsSmart(new_log_contents) {
         log(log_contents);
 
         let new_log_contents = repairLog(typingLog.substringAfterNth('|',1),true);
+        let original_log_contents = log_contents;
+        let original_new_log_contents = new_log_contents;
         log('NEW LOG BUILD - '+new_log_contents);
         let [tot_time,correction_time,raw_time] = eugeneIsSmart(new_log_contents);
         log('Total time: '+tot_time+'; correction time: '+correction_time+'; raw time: '+raw_time);
@@ -947,6 +949,56 @@ function eugeneIsSmart(new_log_contents) {
         if(newping<0) {
             document.getElementById('adjpingspan').style.color='red';
         }
+
+        // display log
+        let logSectionHTML = `<table style='width:100%'><tbody><tr>
+<td style="width:80%;"><h3>Race log:</h3></td>
+<td style="width:20%;"><a class="Section__Card__Body__Btn Section__Card__Body__Btn--pull-right" id='toggleLink'>eek</a><td>
+</tr></tbody></table>
+<div class='section__body'>
+`+original_log_contents+`<br><br>
+`+original_new_log_contents+`</div>`;
+    /*<table class='section__body'>
+      <tbody><tr>
+        <td style="padding-left: 10px;">
+          <div class="fullLogOld">`+original_log_contents+`</div>
+        </td>
+        <td style="padding-left: 10px;">
+          <div class="fullLogNew">`+original_new_log_contents+`</div>
+        </td>
+      </tr>
+    </tbody></table>*/
+        let logSection = document.createElement('div');
+        logSection.classList.add('section');
+        logSection.classList.add('section--boxed');
+        logSection.innerHTML = logSectionHTML;
+        let sections = document.getElementsByClassName('section section--boxed');
+        sections[sections.length-1].insertAdjacentElement('afterend', logSection);
+        let toggleLink = document.getElementById('toggleLink');
+        let isExpanded = true;
+        let newTable;
+
+        function toggleTable() {
+            if(isExpanded) {
+                let currentTable = document.querySelector('.section__body');
+                newTable = currentTable.cloneNode(true);
+                currentTable.remove();
+                logSection.style.paddingBottom="0px";
+
+                toggleLink.innerHTML = 'Show';
+                isExpanded=false;
+            }
+            else {
+                logSection.appendChild(newTable);
+                logSection.style.paddingBottom="32px";
+
+                toggleLink.innerHTML = 'Hide';
+                isExpanded=true;
+            }
+        }
+
+        toggleTable();
+        toggleLink.onclick = toggleTable;
     }
 })();
 
