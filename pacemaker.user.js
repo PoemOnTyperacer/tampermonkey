@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.13
+// @version      1.14
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -116,6 +116,20 @@ function hexToRGB(hex) {
     let green = parseInt(hex[3]+hex[4],16);
     let blue = parseInt(hex[5]+hex[6],16);
     return [red,green,blue].join(',');
+}
+String.prototype.substringAfterNth = function (needle, n) {
+    let counter = 0;
+    let index = 0;
+    for (let i = 0; i < this.length; i++) {
+        if (this[i] === needle) {
+            counter++;
+            if (counter === n) {
+                index = i + 1;
+                break;
+            }
+        }
+    }
+    return this.substring(index);
 }
 
 
@@ -315,7 +329,7 @@ function clock() { // Determine: is guest/username/is racing
             }
         }
         else {
-            racing = true;
+            racing=true;
             raceStart();
         }
     }
@@ -401,7 +415,7 @@ function getRenderedTextData() {
     function logLines(lines) {
         if(!DEBUG)
             return;
-        console.group('%c [Pace Caret] rendered lines of text', 'color: #7DF9FF');
+        console.group('%c [Pacemaker] rendered lines of text', 'color: #7DF9FF');
         lines.forEach(
             function iterator(line, i) {
                 console.log(i, line);
@@ -496,8 +510,8 @@ function getRenderedTextData() {
 //Monitoring Typeracer requests
 async function endpoints() {
     //ensure compatibility with Adjusted Speed 1.7.0 and further
-    if (!XMLHttpRequest.prototype.oldSend) {
-        XMLHttpRequest.prototype.oldSend = XMLHttpRequest.prototype.send;
+    if (!XMLHttpRequest.prototype.oldSend3) {
+        XMLHttpRequest.prototype.oldSend3 = XMLHttpRequest.prototype.send;
     }
 
     XMLHttpRequest.prototype.send = function (body) {
@@ -510,7 +524,7 @@ async function endpoints() {
             // log('[endpoints] endpoint='+endpoint+' ; logPayload='+payload+' ; body='+body.toString(),'##5A5A5A');
 
             const join_game_endpoints = ["joinStandaloneGame", "joinSinglePlayerGame", "joinSameReplayGame", "joinRecordedReplayGame", "joinInstantReplayGame"];
-            const join_room_endpoints = ["createAndJoinCustomRoom","joinRoom","joinGameInRoom"]
+            const join_room_endpoints = ["createAndJoinCustomRoom","joinRoom","joinGameInRoom"];
             const leave_game_endpoint = "leaveGame";
             const leave_room_endpoint = "leaveRoom";
             const navigation_endpoints = join_game_endpoints+join_room_endpoints+[leave_game_endpoint,leave_room_endpoint];
@@ -522,9 +536,11 @@ async function endpoints() {
                 raceStart();
             }
             if (endpoint === "updatePlayerProgress" && payload.startsWith("TLv1")) { //catch and store log
+                //log("[endpoints] race log payload="+payload,'#D3D3D3');
                 let typingLog = payload.substring(0, payload.indexOf("\\!")).substringAfterNth(",", 3);
+                log('[endpoints] log:\n'+typingLog,'#D3D3D3');
                 let newTypingLog = payload.substring(payload.indexOf("\\!")+2);
-                log('[endpoints] log:\n'+typingLog+'\nNew log:\n'+newTypingLog,'#D3D3D3');
+                log('[endpoints] New log:\n'+newTypingLog,'#D3D3D3');
                 this.addEventListener("load", function() {
                     try {
                         const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
@@ -532,7 +548,7 @@ async function endpoints() {
                         let gameStatus = ((document.getElementsByClassName('gameStatusLabel') || [])[0] || {}).innerHTML || '';
                         if (gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')) {
                             registered_speed = responseJSON[resp_len-19];
-                            log('full response JSON:\n'+responseJSON);
+                            //log('full response JSON:\n'+responseJSON);
                             log('[endpoints] caught registered_speed='+registered_speed,'#D3D3D3');
                             // displayResult(registered_speed);
                         }
@@ -571,6 +587,9 @@ async function endpoints() {
                             new_status='customRoom';
                             log("[endpoints] left custom room race, still in custom room.",'#D3D3D3');
                         }
+                        else if(endpoint=='stopGameInRoom') {
+                            log('[endpoint] stopgameinroom actions here','red');
+                        }
                         log("[endpoints] new_status="+new_status,'#D3D3D3');
                         if(new_status!="standby"&&!(endpoint=='leaveGame'&&status=='customRoomGame')&&new_status!='customRoomGame') {
                             log("[endpoints] entered new game",'#D3D3D3');
@@ -599,13 +618,6 @@ async function endpoints() {
 
                     const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
                     if(endpoint=='updatePlayerProgress'&&await_updatePlayerProgress) {
-                        /*console.group('%c [Pace Caret] [endpoints] Breakdown of updatePlayerProgress values:', 'color: #5A5A5A');
-                            responseJSON.forEach(
-                                function iterator(value, i) {
-                                    console.log(i, value);
-                                }
-                            );
-                            console.groupEnd();*/
                         if(responseJSON[0]=='0') {
                             text_id=responseJSON[responseJSON.length-21];
                             log('[endpoints] (private track new race) text id='+text_id,'#D3D3D3');
@@ -623,8 +635,20 @@ async function endpoints() {
                         // log("[endpoints] "+endpoint+" response JSON: " + responseJSON.toString(),'#5A5A5A');
 
                         if(endpoint=='createAndJoinCustomRoom'||endpoint=='joinRoom') {
-                            text_id=responseJSON[responseJSON.length-20];
+                            if(responseJSON.length>50) {
+                                text_id=responseJSON[responseJSON.length-26];
+                            }
+                            else {
+                                text_id=responseJSON[responseJSON.length-20];
+                            }
                             log('[endpoints] (private track) text id='+text_id,'#D3D3D3');
+                            // console.group('%c [Pacemaker] [endpoints] responseJSON breakdown:', 'color: #5A5A5A');
+                            // responseJSON.forEach(
+                            //     function iterator(value, i) {
+                            //         console.log(i, value);
+                            //     }
+                            // );
+                            // console.groupEnd();
                         }
 
                         else {
@@ -640,7 +664,7 @@ async function endpoints() {
                 }
             });
         }
-        return XMLHttpRequest.prototype.oldSend.call(this, body);
+        return XMLHttpRequest.prototype.oldSend3.call(this, body);
     }
 }
 
@@ -816,7 +840,7 @@ function raceEnd() {
     if(status=='customRoomGame'||status=='customRoom') {
         await_updatePlayerProgress=true;
         log('end of a private track race. Awaiting updatePlayerProgress with next text ID');
-    }   
+    }
 }
 
 function pickPace(forced=false){
