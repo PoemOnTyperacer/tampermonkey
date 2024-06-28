@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.14
+// @version      1.15
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -37,7 +37,7 @@ if(universeMatch!=null) {
 log('current universe: '+universe);
 
 
-let targetPace,useTb,targetRank,targetUsername,caretColor,showPb,showRank,showCaret,usePb,useRank,showId,showDefault,showFinal,showDate;
+let targetPace,useTb,targetRank,targetUsername,caretColor,showPb,showRank,showCount,showCaret,usePb,useRank,showId,showDefault,showFinal,showDate;
 function setDefaultSettings() {
     targetPace=100;
     useTb=true;
@@ -48,6 +48,7 @@ function setDefaultSettings() {
     showDefault=true;
     showPb=true;
     showDate=false;
+    showCount=false;
     showRank=true;
     showCaret=true;
     usePb=true;
@@ -92,7 +93,7 @@ function log(msg, color='#7DF9FF') {
         console.log('%c [Pacemaker] '+msg, 'color: '+color);
 }
 function logSettings() {
-    log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
+    log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showCount='+showCount+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
 }
 function sleep(x) { // Wait for x ms
     return new Promise(resolve => setTimeout(resolve, x));
@@ -152,6 +153,7 @@ function load_settings(refreshTb=true) {
     showDefault=!!+GM_getValue("showDefault");
     showPb=!!+GM_getValue("showPb");
     showDate=!!+GM_getValue("showDate");
+    showCount=!!+GM_getValue("showCount");
     showRank=!!+GM_getValue("showRank");
     showFinal=!!+GM_getValue("showFinal");
     showCaret=!!+GM_getValue("showCaret");
@@ -192,6 +194,7 @@ function config() {
             showDefault=document.getElementById("showDefault").checked;
             showPb=document.getElementById("showPb").checked;
             showDate=document.getElementById("showDate").checked;
+            showCount=document.getElementById("showCount").checked;
             showRank=document.getElementById("showRank").checked;
             showFinal=document.getElementById("showFinal").checked;
             showCaret=document.getElementById("showCaret").checked;
@@ -208,6 +211,7 @@ function config() {
             GM_setValue("showDefault", showDefault ? "1" : "0");
             GM_setValue("showPb", showPb ? "1" : "0");
             GM_setValue("showDate", showDate ? "1" : "0");
+            GM_setValue("showCount", showCount ? "1" : "0");
             GM_setValue("showRank", showRank ? "1" : "0");
             GM_setValue("showFinal", showFinal ? "1" : "0");
             GM_setValue("showCaret", showCaret ? "1" : "0");
@@ -243,6 +247,7 @@ function config() {
             + "<br><br><input id='showDefault' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Minimum pace</span>"
             + "<br><br><input id='showPb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best</span>"
             + "<br><br><input id='showDate' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best date</span>"
+            + "<br><br><input id='showCount' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Total times completed</span>"
             + "<br><br><input id='showRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Nth fastest (rank selected above)</span>"
             + "<br><br><input id='showFinal' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Pace to beat</span>"
             + "<br><br><input id='showCaret' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Pace caret</span>"
@@ -300,6 +305,7 @@ function config() {
         document.getElementById("showDefault").checked = showDefault;
         document.getElementById("showPb").checked = showPb;
         document.getElementById("showDate").checked = showDate;
+        document.getElementById("showCount").checked = showCount;
         document.getElementById("showRank").checked = showRank;
         document.getElementById("showFinal").checked = showFinal;
         document.getElementById("showCaret").checked = showCaret;
@@ -995,6 +1001,9 @@ async function getTextData(id) {
         }
     });
     function pbProcess(responseHTML) {
+        let displayCount=document.querySelector('#displayCount');
+        if(showCount)
+            displayCount.parentNode.parentNode.style.display='';
         // log('[getdata] text history response text:\n'+responseHTML,'#D3D3D3');
         const emptyRegex=/(Sorry, that username has not yet completed any races on that text.)/;
         let emptyMatch=emptyRegex.exec(responseHTML);
@@ -1006,8 +1015,16 @@ async function getTextData(id) {
             }
             pbPace='none';
             pace=targetPace;
+
+            if(showCount) {
+                log('[getdata] setting times typed to 0','#ff0000');
+                displayCount.innerText='0';
+            }
             return;
         }
+
+
+        // if text has already been completed, find personal best
         responseHTML=responseHTML.replace(/(\r\n|\n|\r)/gm, "");
         const dateAndWPMRegex=/.+?#ddd;">.+?<\/td>  <td>(.+?)<.+?">(.+?)<\/a/;
         let dateAndWPMMatch=dateAndWPMRegex.exec(responseHTML);
@@ -1028,9 +1045,24 @@ async function getTextData(id) {
                 displayDate.innerText=' ('+shortenedDate+')';
                 displayDate.parentNode.parentNode.style.display='';
             }
+            if(showCount) {
+                let outputCount = 0;
+                displayCount.innerText=outputCount;
+            }
         }
         pbPace=pb_WPM;
         pickPace();
+
+
+
+        // if text has already been completed, count total times typed
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(responseHTML, "text/html");
+        const table = doc.querySelector('table.profile');
+        const rows = table.querySelectorAll('tr');
+        const rowCount = rows.length-1;
+        log('[getdata] setting times typed to '+rowCount,'#D3D3D3');
+        document.querySelector('#displayCount').innerText=rowCount;
     }
 }
 
@@ -1068,6 +1100,12 @@ let displayHTML=`
     <td></td>
     <td>
       <span style='padding-left: 50px;' id='displayDate'></span>
+    </td>
+  </tr>
+  <tr style='display: none'>
+    <td>Times typed:</td>
+    <td>
+      <span style='padding-left: 50px;' id='displayCount'></span>
     </td>
   </tr>
   <tr style='display: none'>
@@ -1140,6 +1178,8 @@ function makeDisplay() {
         document.querySelector('#displayPb1').parentNode.parentNode.remove();
     if(showPb&&!showDate)
         document.querySelector('#displayDate').parentNode.parentNode.remove();
+    if(showPb&&!showCount)
+        document.querySelector('#displayCount').parentNode.parentNode.remove();
     if(!showRank)
         document.querySelector('#displayRank1').parentNode.parentNode.remove();
     if(!showFinal) {
@@ -1152,6 +1192,11 @@ function makeDisplay() {
 }
 
 function displayResult(lagged_speed) {
+    log('[displayResult] displaying count +1','#D3D3D3');
+    let displayCount= document.querySelector('#displayCount');
+    let displayCountContent=parseInt(displayCount.innerText);
+    displayCount.innerHTML='&rarr; '+(displayCountContent+1);
+
     log('[displayResult] displaying lagged result = '+lagged_speed,'#D3D3D3');
     let displayLagged=document.querySelector('#displayLagged');
     let displayPb1 = document.querySelector('#displayPb1');
