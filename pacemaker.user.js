@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.15
+// @version      1.18
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -1004,11 +1004,15 @@ async function getTextData(id) {
         let displayCount=document.querySelector('#displayCount');
         if(showCount)
             displayCount.parentNode.parentNode.style.display='';
+
+
+
         // log('[getdata] text history response text:\n'+responseHTML,'#D3D3D3');
         const emptyRegex=/(Sorry, that username has not yet completed any races on that text.)/;
         let emptyMatch=emptyRegex.exec(responseHTML);
         if(emptyMatch!=null) {
             log('[getdata] user '+tempUsername+' has not yet completed text ID='+id+'; setting pace to '+targetPace,'#ff0000');
+            // log('[getdata] full response:\n'+responseHTML,'#008000');
             if(showPb) {
                 document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername);
                 document.querySelector('#displayPb2').innerText="hasn't completed this text yet!";
@@ -1192,10 +1196,14 @@ function makeDisplay() {
 }
 
 function displayResult(lagged_speed) {
-    log('[displayResult] displaying count +1','#D3D3D3');
+    /*log('[displayResult] adding '+username+' to the typeracerdata import queue','#D3D3D3');
+    backgroundImportTyperacerData(username);*/
+
+    //"times typed" simple increment
+    /*log('[displayResult] displaying count +1','#D3D3D3');
     let displayCount= document.querySelector('#displayCount');
     let displayCountContent=parseInt(displayCount.innerText);
-    displayCount.innerHTML='&rarr; '+(displayCountContent+1);
+    displayCount.innerHTML='&rarr; '+(displayCountContent+1);*/
 
     log('[displayResult] displaying lagged result = '+lagged_speed,'#D3D3D3');
     let displayLagged=document.querySelector('#displayLagged');
@@ -1222,7 +1230,20 @@ function displayResult(lagged_speed) {
     }
 }
 
+function backgroundImportTyperacerData(username) {
+    const importUrl = `https://www.typeracerdata.com/import?username=${username}`;
 
+    GM_xmlhttpRequest({
+        method: "GET",
+        url: importUrl,
+        onload: function(response) {
+            log('[bgImportTRData] successfully added '+username+' to the typeracerdata import queue','#D3D3D3');
+        },
+        onerror: function(response) {
+            log('[bgImportTRData] error when adding '+username+' to the typeracerdata import queue: '+response.statusText,'#D3D3D3');
+        }
+    });
+}
 
 
 // Main
