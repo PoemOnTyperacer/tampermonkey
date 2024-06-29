@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.18
+// @version      1.19
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -1109,7 +1109,7 @@ let displayHTML=`
   <tr style='display: none'>
     <td>Times typed:</td>
     <td>
-      <span style='padding-left: 50px;' id='displayCount'></span>
+      <span style='padding-left: 50px;' id='displayCount'>loading...</span>
     </td>
   </tr>
   <tr style='display: none'>
@@ -1166,6 +1166,9 @@ function makeDisplay() {
 
 
     // Fill display and remove sections according to settings
+    let displayCount = document.querySelector('#displayCount');
+    if(showCount)
+        displayCount.parentNode.parentNode.style.display='';
     document.querySelector('#displayDefault').innerText=targetPace+' WPM';
     if(useTb&&text_best_average!=null&&tba_username!=null) {
         document.querySelector('#displayDefault').innerText=text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
