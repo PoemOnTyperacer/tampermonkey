@@ -47,8 +47,8 @@ function setDefaultSettings() {
     showId=false;
     showDefault=true;
     showPb=true;
-    showDate=false;
-    showCount=false;
+    showDate=true;
+    showCount=true;
     showRank=true;
     showCaret=true;
     usePb=true;
