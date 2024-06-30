@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.19
+// @version      1.22
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -55,7 +55,7 @@ function setDefaultSettings() {
     useRank=false;
 }
 
-let GUITimeout;
+let GUITimeout,GUITimeout2;
 let menuOpen=false;
 let displayDiv;
 
@@ -683,6 +683,18 @@ function createPCaret() {
     pCaret.style.visibility='hidden';
     pCaret.id='pCaret';
     document.body.insertAdjacentHTML("beforeend",`<style>
+.round-button {
+width: 20px;
+height: 20px;
+border-radius: 50%;
+background-color: #000000;
+border: none;
+color: #FFFFFF;
+text-align: center;
+font-size: 9px;
+cursor: pointer;
+margin-left: 20px;
+}
  #pCaret {
   background-color: white;
   position: absolute;
@@ -820,6 +832,8 @@ function resetCaretAnimation() {
 // Main logic
 function raceStart() {
     log('racing');
+    // if(!isGuest)
+    //     backgroundImportTyperacerData(username);
     pickPace(true);
     if(showCaret)
         animateCaret(lineList, rectList);
@@ -992,6 +1006,14 @@ async function getTextData(id) {
     let text_history_url = 'https://typeracerdata.com/text.races?universe='+universe+'&text='+id+'&username='+tempUsername;
     log('[getdata] text_history_url = '+text_history_url);
 
+
+    let displayCount=document.querySelector('#displayCount');
+    let displayDate=document.querySelector('#displayDate');
+    if(showCount)
+        displayCount.parentNode.parentNode.style.display='';
+    if(showDate)
+        displayDate.parentNode.parentNode.style.display='';
+
     GM_xmlhttpRequest ( {
         method: 'GET',
         url: text_history_url,
@@ -1002,20 +1024,18 @@ async function getTextData(id) {
     });
     function pbProcess(responseHTML) {
         let displayCount=document.querySelector('#displayCount');
-        if(showCount)
-            displayCount.parentNode.parentNode.style.display='';
-
-
+        let displayDate=document.querySelector('#displayDate');
 
         // log('[getdata] text history response text:\n'+responseHTML,'#D3D3D3');
         const emptyRegex=/(Sorry, that username has not yet completed any races on that text.)/;
         let emptyMatch=emptyRegex.exec(responseHTML);
         if(emptyMatch!=null) {
             log('[getdata] user '+tempUsername+' has not yet completed text ID='+id+'; setting pace to '+targetPace,'#ff0000');
-            // log('[getdata] full response:\n'+responseHTML,'#008000');
             if(showPb) {
                 document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername);
                 document.querySelector('#displayPb2').innerText="hasn't completed this text yet!";
+                displayCount.parentNode.parentNode.style.display='none';
+                displayDate.parentNode.parentNode.style.display='none';
             }
             pbPace='none';
             pace=targetPace;
@@ -1040,14 +1060,22 @@ async function getTextData(id) {
         let date=dateAndWPMMatch[1];
         let pb_WPM=parseFloat(dateAndWPMMatch[2]);
         log('[getdata] pb for username='+tempUsername+' set at date='+date+', WPM='+pb_WPM,'#D3D3D3');
+
+        let outputDate;
+
+        /* GINOO75 MODE*/
+        if(username=='ginoo75')
+            outputDate=date.split(' ')[0];
+        /* END OF GINOO75 MODE*/
+
+        else
+            outputDate=timeSince(date);
+
         if(showPb) {
             document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername)+"'s best:";
             document.querySelector('#displayPb2').innerText=pb_WPM.toFixed(DECIMAL_PLACES)+' WPM';
             if(showDate) {
-                let shortenedDate=date.split(' ')[0];
-                let displayDate=document.querySelector('#displayDate');
-                displayDate.innerText=' ('+shortenedDate+')';
-                displayDate.parentNode.parentNode.style.display='';
+                displayDate.innerText=` ${outputDate}`;
             }
             if(showCount) {
                 let outputCount = 0;
@@ -1069,7 +1097,30 @@ async function getTextData(id) {
         document.querySelector('#displayCount').innerText=rowCount;
     }
 }
+function timeSince(dateTimeString) {
+    const inputDate = new Date(dateTimeString + ' GMT+0000');
+    const currentDate = new Date();
+    const differenceInMs = currentDate - inputDate;
 
+    const differenceInMinutes = Math.round(differenceInMs / 60000);
+    if (differenceInMinutes <= 59) {
+        return `${differenceInMinutes} minute${differenceInMinutes > 1 ? 's' : ''} ago`;
+    }
+    const differenceInHours = Math.round(differenceInMinutes / 60);
+    if (differenceInHours <= 23) {
+        return `${differenceInHours} hour${differenceInHours > 1 ? 's' : ''} ago`;
+    }
+    const differenceInDays = Math.round(differenceInHours / 24);
+    if (differenceInDays <= 30) {
+        return `${differenceInDays} day${differenceInDays > 1 ? 's' : ''} ago`;
+    }
+    const differenceInMonths = Math.round(differenceInDays / 30);
+    if (differenceInMonths <= 11) {
+        return `${differenceInMonths} month${differenceInMonths > 1 ? 's' : ''} ago`;
+    }
+    const differenceInYears = Math.round(differenceInMonths / 12);
+    return `${differenceInYears} year${differenceInYears > 1 ? 's' : ''} ago`;
+}
 
 
 
@@ -1098,24 +1149,25 @@ let displayHTML=`
     </td>
     <td>
       <span style='padding-left: 50px;' id='displayPb2'></span>
-    </td>
-  </tr>
-  <tr style='display: none'>
-    <td></td>
-    <td>
-      <span style='padding-left: 50px;' id='displayDate'></span>
-    </td>
-  </tr>
-  <tr style='display: none'>
-    <td>Times typed:</td>
-    <td>
-      <span style='padding-left: 50px;' id='displayCount'>loading...</span>
+      <button class='round-button' id='queueButton' title='Import your latest races to Typeracerdata'>&#129093;</button>
     </td>
   </tr>
   <tr style='display: none'>
     <td></td>
     <td>
       <span style='padding-left: 50px;' id='displayLagged'></span>
+    </td>
+  </tr>
+  <tr style='display: none'>
+    <td></td>
+    <td>
+      <span style='padding-left: 50px;' id='displayDate'>loading...</span>
+    </td>
+  </tr>
+  <tr style='display: none'>
+    <td>Times typed:</td>
+    <td>
+      <span style='padding-left: 50px;' id='displayCount'>loading...</span>
     </td>
   </tr>
   <tr>
@@ -1164,6 +1216,20 @@ function makeDisplay() {
     displayDiv.style.color = contrastColor;
     displayDiv.style.borderColor = contrastColor;
 
+    // Trdata queue button
+    let queueButton = document.querySelector('#queueButton');
+    queueButton.addEventListener("click", function() {
+        if(!isGuest)
+            backgroundImportTyperacerData(username);
+        queueButton.style.opacity='50%';
+        clearTimeout(GUITimeout2);
+        GUITimeout2 = setTimeout(function() {
+            queueButton=document.getElementById("queueButton");
+            if(queueButton==null)
+                return;
+            queueButton.style.opacity='100%';
+        },1500);
+    }, true);
 
     // Fill display and remove sections according to settings
     let displayCount = document.querySelector('#displayCount');
@@ -1247,7 +1313,6 @@ function backgroundImportTyperacerData(username) {
         }
     });
 }
-
 
 // Main
 load_settings();
