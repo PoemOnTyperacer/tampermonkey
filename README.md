@@ -45,7 +45,7 @@ Under "Behavior" settings, select a list of words that will glow during tests so
 Calculates and embeds the average speed over the last 20 races on Keymash profiles.
 
 
-## For TypeRacer (even more random features)
+## For TypeRacer (more random/might be broken)
 - <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/smooth_caret.user.js">Smooth caret</a>:<br>
 Smoother animation and customizable appearance for your cursor while typing.<br>
 <em>With "Hide input field" option selected, will automatically scroll texts taller than your screen as you progress (eg. in marathon universe).<br>
