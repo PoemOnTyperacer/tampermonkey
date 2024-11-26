@@ -524,7 +524,7 @@ async function endpoints() {
 
 
         if (body) {
-            const splitBody = body.split("|");
+            const splitBody = (body+'').split("|");
             const endpoint = splitBody[6];
             const payload = splitBody[13];
             // log('[endpoints] endpoint='+endpoint+' ; logPayload='+payload+' ; body='+body.toString(),'##5A5A5A');
