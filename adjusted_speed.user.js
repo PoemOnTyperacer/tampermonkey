@@ -282,7 +282,7 @@ function eugeneIsSmart(new_log_contents) {
         // intercept XMLHttpRequests which contain data we need
         XMLHttpRequest.prototype.send = function (body) {
             if (body) {
-                const splitBody = body.split("|");
+                const splitBody = (body+'').split("|");
                 const endpoint = splitBody[6];
                 const payload = splitBody[13];
                 // log('endpoint='+endpoint+' ; logPayload='+payload+' ; body='+body.toString());
