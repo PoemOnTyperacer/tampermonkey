@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Countdown
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.5
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @description  Drag and drop, audio cue, and precision countdown for Typeracer
@@ -23,10 +23,11 @@ function log(msg, color='#7DF9FF') {
 
 
 /*SETTINGS*/
-let debug, audio, precision_countdown, show_decimals;
+let debug, audio, volume, precision_countdown, show_decimals;
 const DEFAULT_SETTINGS = {
     debug: false,
     audio: true,
+    volume: 100,
     precision_countdown:true,
     show_decimals:false
 }
@@ -40,6 +41,7 @@ addConfig(); // Add Tampermonkey config menu
 function loadSettings() {
     debug = GM_getValue(SETTINGS_PREFIX+"debug", DEFAULT_SETTINGS.debug);
     audio = GM_getValue(SETTINGS_PREFIX+"audio", DEFAULT_SETTINGS.audio);
+    volume = parseInt(GM_getValue(SETTINGS_PREFIX+"volume", DEFAULT_SETTINGS.volume));
     precision_countdown = GM_getValue(SETTINGS_PREFIX+"precision_countdown", DEFAULT_SETTINGS.precision_countdown);
     show_decimals = GM_getValue(SETTINGS_PREFIX+"show_decimals", DEFAULT_SETTINGS.show_decimals);
     printSettings();
@@ -83,14 +85,19 @@ function openConfig() {
                     <input type="checkbox" id="myOption2" ${audio ? 'checked' : ''}>
                 </label>
                 <br><br>
+                <label id="volumeLabel" ${audio ? '' : 'style="opacity: 0.5; pointer-events:none!important;"'}>
+                    Volume:
+                    <input type="range" id="myOption3" min="0" max="100" value="${volume || 100}" style="width: 100%;">
+                </label>
+                <br><br>
                 <label>
                     Precision countdown:
-                    <input type="checkbox" id="myOption3" ${precision_countdown ? 'checked' : ''}>
+                    <input type="checkbox" id="myOption4" ${precision_countdown ? 'checked' : ''}>
                 </label>
                 <br><br>
                 <label ${precision_countdown ? '' : 'style="opacity: 0.5; pointer-events:none!important;"'}>
                     Show decimal places:
-                    <input type="checkbox" id="myOption4" ${show_decimals ? 'checked' : ''}>
+                    <input type="checkbox" id="myOption5" ${show_decimals ? 'checked' : ''}>
                 </label>
                 <br><br>
                 <button id="saveBtn">Save</button>
@@ -100,20 +107,31 @@ function openConfig() {
     document.body.appendChild(div);
 
     // Grey out show_decimals option when precision_countdown is off
-    let precisionCountdownCheckbox=document.getElementById("myOption3");
+    let precisionCountdownCheckbox=document.getElementById("myOption4");
     precisionCountdownCheckbox.onchange = togglePrecisionCountdown;
     function togglePrecisionCountdown() {
-        let showDecimalsLabel=document.getElementById('myOption4').parentNode;
+        let showDecimalsLabel=document.getElementById('myOption5').parentNode;
         if(precisionCountdownCheckbox.checked) {
             showDecimalsLabel.style.opacity='1';
             showDecimalsLabel.style.pointerEvents='';
         }
         else {
-
             showDecimalsLabel.style.opacity='0.5';
             showDecimalsLabel.style.pointerEvents='none';
         }
     }
+
+    document.getElementById('myOption2').addEventListener('change', (event) => {
+        const volumeLabel = document.getElementById('volumeLabel');
+        if (event.target.checked) {
+            volumeLabel.style.opacity='1';
+            volumeLabel.style.pointerEvents='';
+        }
+        else {
+            volumeLabel.style.opacity='0.5';
+            volumeLabel.style.pointerEvents='none';
+        }
+    });
 
     document.getElementById("saveBtn").addEventListener("click", saveSettings);
     document.getElementById("closeBtn").addEventListener("click", closeConfig);
@@ -123,13 +141,15 @@ function saveSettings() {
     log('Reading new settings from UI');
     debug = document.getElementById("myOption1").checked;
     audio = document.getElementById("myOption2").checked;
-    precision_countdown = document.getElementById("myOption3").checked;
-    show_decimals = document.getElementById("myOption4").checked;
+    volume = parseInt(document.getElementById('myOption3').value);
+    precision_countdown = document.getElementById("myOption4").checked;
+    show_decimals = document.getElementById("myOption5").checked;
     printSettings();
 
     log('Storing new settings');
     GM_setValue(SETTINGS_PREFIX+"debug", debug);
     GM_setValue(SETTINGS_PREFIX+"audio", audio);
+    GM_setValue(SETTINGS_PREFIX+"volume", volume);
     GM_setValue(SETTINGS_PREFIX+"precision_countdown", precision_countdown);
     GM_setValue(SETTINGS_PREFIX+"show_decimals", show_decimals);
 
@@ -150,7 +170,7 @@ function closeConfig() {
 }
 
 function printSettings() {
-    log('Settings:\ndebug = '+debug+'\naudio = '+audio+'\nprecision_countdown = '+precision_countdown+'\nshow_decimals = '+show_decimals);
+    log('Settings:\ndebug = '+debug+'\naudio = '+audio+'\nvolume = '+volume+'\nprecision_countdown = '+precision_countdown+'\nshow_decimals = '+show_decimals);
 }
 
 
@@ -260,7 +280,13 @@ function base64ToArrayBuffer(base64) {
 function playSoundAtTime(audioBuffer, time) {
     const source = audioCtx.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(audioCtx.destination);
+
+    // Create a GainNode to control the volume
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = volume / 100; // Convert volume to a value between 0.0 and 1.0
+    // Connect the nodes: source -> gain -> destination
+    source.connect(gainNode).connect(audioCtx.destination);
+
     source.start(time);
 
     // Store the scheduled start time
