@@ -421,7 +421,7 @@ function countdownRemoval(removed_node) {
 /*Precision countdown*/
 function precisionCountdown(value, changeTime) {
     const durationInSeconds = value - 1;
-    let startTime = changeTime + 1500; // Adjust as needed
+    let startTime = changeTime + 1500;
     if(!show_decimals)
         startTime+=1000;
     const endTime = startTime + durationInSeconds * 1000;
@@ -453,7 +453,6 @@ function precisionCountdown(value, changeTime) {
 
             if (remainingTime <= 0) {
                 displayTime(0);
-                // Countdown finished actions
             } else {
                 displayTime(remainingTime);
                 requestAnimationFrame(updateCountdown);
