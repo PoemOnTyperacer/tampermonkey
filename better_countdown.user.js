@@ -2,6 +2,8 @@
 // @name         Typeracer: Better Countdown
 // @namespace    http://tampermonkey.net/
 // @version      1.3
+// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
+// @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @description  Drag and drop, audio cue, and precision countdown for Typeracer
 // @author       altrocality & poem
 // @match        https://play.typeracer.com/*
