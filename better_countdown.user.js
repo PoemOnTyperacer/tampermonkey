@@ -349,7 +349,7 @@ function observeCountdown(countdown_popup) {
     let canvas,contrastColor=''
     if(precision_countdown) {
         let container = time_label.parentNode;
-        let canvas = container.querySelector('canvas.precision_time_canvas');
+        canvas = container.querySelector('canvas.precision_time_canvas');
         if (!canvas) {
             canvas = document.createElement('canvas');
             canvas.className = 'precision_time_canvas';
