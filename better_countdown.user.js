@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Countdown
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.6
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @description  Drag and drop, audio cue, and precision countdown for Typeracer
@@ -346,49 +346,65 @@ function observeCountdown(countdown_popup) {
 
     // Creating a canvas to display the visual countdown
     // A canvas is preferred to updating the textContent for faster content updates
-    let container = time_label.parentNode;
-    let canvas = container.querySelector('canvas.precision_time_canvas');
-    if (!canvas) {
-        canvas = document.createElement('canvas');
-        canvas.className = 'precision_time_canvas';
-        canvas.width = 50; // in px
-        canvas.height = 50;
-        canvas.style.display = 'inline-block';
-        canvas.style.verticalAlign = 'middle';
-        canvas.style.pointerEvents = 'none';
-        container.appendChild(canvas); // Adding canvas to countdown popup
-        time_label.style.visibility='hidden'; // Hiding the original countdown text
-        time_label.style.position='absolute'; // And removing it from the popup
-    }
-    // Determine what color the countdown popup background is (theme dependent)
-    let target = time_label;
-    while (target !== document.body && window.getComputedStyle(target).backgroundColor === 'rgba(0, 0, 0, 0)') {
-        target = target.parentElement;
-    }
-    const bgColor = window.getComputedStyle(target).backgroundColor;
-    let rgb = bgColor.match(/\d+/g).map(Number);
-    log('Time label background color = '+rgb);
+    let canvas,contrastColor=''
+    if(precision_countdown) {
+        let container = time_label.parentNode;
+        let canvas = container.querySelector('canvas.precision_time_canvas');
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.className = 'precision_time_canvas';
+            canvas.width = 50; // in px
+            canvas.height = 50;
+            canvas.style.display = 'inline-block';
+            canvas.style.verticalAlign = 'middle';
+            canvas.style.pointerEvents = 'none';
+            container.appendChild(canvas); // Adding canvas to countdown popup
+            time_label.style.visibility='hidden'; // Hiding the original countdown text
+            time_label.style.position='absolute'; // And removing it from the popup
+        }
+        // Determine what color the countdown popup background is (theme dependent)
+        let target = time_label;
+        while (target !== document.body && window.getComputedStyle(target).backgroundColor === 'rgba(0, 0, 0, 0)') {
+            target = target.parentElement;
+        }
+        const bgColor = window.getComputedStyle(target).backgroundColor;
+        let rgb = bgColor.match(/\d+/g).map(Number);
+        log('Time label background color = '+rgb);
 
-    // Choose a high contrast color for the canvas text
-    let luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
-    let d = luminance > 128 ? 0 : 255;
-    let contrastColor= `rgb(${d}, ${d}, ${d})`;
-    log('Best contrast color = '+contrastColor);
+        // Choose a high contrast color for the canvas text
+        let luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+        let d = luminance > 128 ? 0 : 255;
+        contrastColor= `rgb(${d}, ${d}, ${d})`;
+        log('Best contrast color = '+contrastColor);
+    }
 
-    // Overriding the vanilla time label's textContent change function, to capture a precise time stamp of when it ticks down, without the delays introduced by a MutationObserver
+    // Overriding the vanilla time label's textContent property, to capture a precise time stamp of when it ticks down, without the delays introduced by a MutationObserver
+    // Store the original textContent property descriptor
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+        Node.prototype,
+        'textContent'
+    );
+
     let originalTextContent = time_label.textContent;
+
+    // Override the textContent property
     Object.defineProperty(time_label, 'textContent', {
         get() {
             return originalTextContent;
         },
         set(value) {
             originalTextContent = value;
+
+            // Use the original setter to update the DOM
+            originalDescriptor.set.call(time_label, value);
+
+            // Capture the change timestamp
             const changeTime = performance.now();
             onTextChange(value, changeTime, canvas, contrastColor);
         },
-        configurable: true
+        configurable: true,
+        enumerable: true
     });
-
 }
 
 // When the vanilla timer changes, parse the value, and start custom visual and audio countdowns
