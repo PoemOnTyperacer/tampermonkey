@@ -528,11 +528,10 @@ function getAccurateContextTime(changeTime) {
 /*VISUAL COUNTDOWN*/
 function visualCountdown(value, changeTime, canvas, contrastColor) {
 
-    const durationInSeconds = value - 1;
+    let durationInSeconds = value - 1;
     let startTime = changeTime + 1500;
-    if (!show_decimals) startTime += 1000;
-    const endTime = startTime + durationInSeconds * 1000;
-    log('Calculated 0.00 target time = '+endTime,'#00FF00');
+    let endTime = startTime + durationInSeconds * 1000;
+    log('startTime = '+startTime+'; duration = '+(durationInSeconds*1000)+'ms; Calculated 0.00 target time = '+endTime,'#00FF00');
 
     const ctx = canvas.getContext('2d');
 
@@ -557,13 +556,8 @@ function visualCountdown(value, changeTime, canvas, contrastColor) {
     function displayTime(milliseconds, forced=false) {
         const totalSeconds = milliseconds / 1000;
 
-        const hours = Math.floor((totalSeconds / 3600) % 24);
-        const minutes = Math.floor((totalSeconds / 60) % 60);
-        const seconds = Math.floor(totalSeconds % 60);
-        const tenths = Math.floor((milliseconds % 1000) / 100);
-
         // Format time
-        let timeString = `${seconds}`;
+        let timeString = Math.ceil(totalSeconds);
         if (show_decimals) timeString = totalSeconds.toFixed(2);
         latestTimeString = timeString;
 
@@ -583,7 +577,7 @@ function visualCountdown(value, changeTime, canvas, contrastColor) {
             requestAnimationFrame(updateCountdown);
         }
         else { // Countdown is active
-            const remainingTime = endTime - now;
+            let remainingTime = endTime - now;
             if (remainingTime <= 0&&(latestTimeString!='0.00'&&latestTimeString!='0')) {
                 log('Forcing 0.00 at time stamp = '+performance.now()+'. Overshot target time ('+endTime+') by '+(-1*remainingTime)+'ms, jumping from latest time string = '+latestTimeString,'#00FF00');
                 displayTime(0,true);
