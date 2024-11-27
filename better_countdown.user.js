@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Countdown
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.7
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @description  Drag and drop, audio cue, and precision countdown for Typeracer
@@ -20,6 +20,7 @@
 function log(msg, color='#7DF9FF') {
     if(debug) console.log('%c [Countdown Alert] '+msg, 'color: '+color);
 }
+let steps = [];
 
 
 /*SETTINGS*/
@@ -321,7 +322,7 @@ function elementMutate(mutations_list) {
         mutation.addedNodes.forEach(function(added_node) {
             if(added_node.className == "countdownPopup horizontalCountdownPopup") {
                 let timestamp = performance.now();
-                log('Countdown popup detected at timestamp = '+timestamp);
+                log('Countdown popup detected at timestamp = '+timestamp,'#00FF00');
                 observeCountdown(added_node);
                 newDragAndDropCountdown(added_node);
             }
@@ -339,6 +340,10 @@ elementObserver.observe(document.body, {subtree: false, childList: true});
 
 
 // On new countdown popup, observe the text label within and create visual countdown canvas
+const CANVAS_WIDTH = 75; // in px
+const CANVAS_HEIGHT = CANVAS_WIDTH;
+
+
 function observeCountdown(countdown_popup) {
     let time_elements=countdown_popup.getElementsByClassName('time');
     if (time_elements.length === 0) return;
@@ -346,15 +351,15 @@ function observeCountdown(countdown_popup) {
 
     // Creating a canvas to display the visual countdown
     // A canvas is preferred to updating the textContent for faster content updates
-    let canvas,contrastColor=''
+    let canvas, contrastColor=''
     if(precision_countdown) {
         let container = time_label.parentNode;
         canvas = container.querySelector('canvas.precision_time_canvas');
         if (!canvas) {
             canvas = document.createElement('canvas');
             canvas.className = 'precision_time_canvas';
-            canvas.width = 50; // in px
-            canvas.height = 50;
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
             canvas.style.display = 'inline-block';
             canvas.style.verticalAlign = 'middle';
             canvas.style.pointerEvents = 'none';
@@ -387,7 +392,7 @@ function observeCountdown(countdown_popup) {
 
     let originalTextContent = time_label.textContent;
 
-    // Override the textContent property
+    // Override the textContent property to capture a timestamp when the vanilla countdown value changes
     Object.defineProperty(time_label, 'textContent', {
         get() {
             return originalTextContent;
@@ -405,9 +410,20 @@ function observeCountdown(countdown_popup) {
         configurable: true,
         enumerable: true
     });
+
+
+    // Alternative approach: mutation observer to detect when the vanilla countdown changes
+    // function countdownMutate(mutations_list) {
+    //     mutations_list.forEach(function(mutation) {
+    //         log('Mutation Observer detected countdown change at time stamp = '+performance.now(),'#00FF00');
+    //     });
+    // }
+    // const countdownObserver = new MutationObserver(countdownMutate);
+    // countdownObserver.observe(time_label, {characterData: false, attributes: false, childList: true, subtree: true})
 }
 
 // When the vanilla timer changes, parse the value, and start custom visual and audio countdowns
+let previousTickStamp;
 function onTextChange(newValue, changeTime, canvas, contrastColor) {
     // Parse vanilla countdown value
     const match = /:0(.)/.exec(newValue);
@@ -419,12 +435,22 @@ function onTextChange(newValue, changeTime, canvas, contrastColor) {
     // 0 = OFF, 1 = not yet ready, 2 = ready to start, >2 = ongoing
     countingDown++;
     // Wait for the second countdown value, in case the user joined the race partway through the first, which would offset the countdown
-    if(countingDown!=2) return;
+    if(countingDown<2) {
+        previousTickStamp = changeTime;
+        return;
+    }
+    if(countingDown>=2) {
+        let step = changeTime-previousTickStamp;
+        if(countingDown!=2) steps.push(step);
+        log('Time stamp = '+changeTime+', step = '+step+'ms','#00FF00');
+        previousTickStamp = changeTime;
+    }
+    if(countingDown>2) return;
 
     // When ready to start, begin the visual countdown
     if(precision_countdown&&!precision_countdown_started) {
         precision_countdown_started=true;
-        log('Starting precision countdown');
+        log('Starting visual countdown');
         visualCountdown(countdownValue, changeTime, canvas, contrastColor);
     }
 
@@ -454,6 +480,14 @@ function countdownRemoval(removed_node) {
     interruptSounds();
     countingDown=0;
     precision_countdown_started=false;
+    if(debug) {
+        let averageStep = Math.round(steps.reduce((a, b) => a + b) / steps.length);
+        let minStep = Math.min(...steps);
+        let maxStep = Math.max(...steps);
+        log('All full steps:\n'+steps,'#00FF00');
+        log('Average step = '+averageStep+'; min = '+minStep+'; max = '+maxStep,'#00FF00');
+        steps = [];
+    }
 }
 
 
@@ -498,15 +532,16 @@ function visualCountdown(value, changeTime, canvas, contrastColor) {
     let startTime = changeTime + 1500;
     if (!show_decimals) startTime += 1000;
     const endTime = startTime + durationInSeconds * 1000;
+    log('Calculated 0.00 target time = '+endTime,'#00FF00');
 
     const ctx = canvas.getContext('2d');
 
     // Handle high-DPI displays for sharper text
     const scale = window.devicePixelRatio || 1;
-    canvas.width = 50 * scale;
-    canvas.height = 50 * scale;
-    canvas.style.width = '50px'; // CSS width
-    canvas.style.height = '50px'; // CSS height
+    canvas.width = CANVAS_WIDTH * scale;
+    canvas.height = CANVAS_HEIGHT * scale;
+    canvas.style.width = CANVAS_WIDTH+'px'; // CSS width
+    canvas.style.height = CANVAS_HEIGHT+'px'; // CSS height
     ctx.scale(scale, scale);
 
     // Text properties
@@ -518,7 +553,8 @@ function visualCountdown(value, changeTime, canvas, contrastColor) {
     // Initial clear
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    function displayTime(milliseconds) {
+    let latestTimeString='';
+    function displayTime(milliseconds, forced=false) {
         const totalSeconds = milliseconds / 1000;
 
         const hours = Math.floor((totalSeconds / 3600) % 24);
@@ -528,13 +564,15 @@ function visualCountdown(value, changeTime, canvas, contrastColor) {
 
         // Format time
         let timeString = `${seconds}`;
-        if (show_decimals) timeString = `${seconds}.${tenths}`;
+        if (show_decimals) timeString = totalSeconds.toFixed(2);
+        latestTimeString = timeString;
 
         // Clear the canvas before drawing
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Draw the countdown text
         ctx.fillText(timeString, canvas.width / (2 * scale), canvas.height / (2 * scale));
+        if((timeString==='0.00'||timeString==='0')&&!forced) log('Animation showing 0.00 at timestamp '+performance.now()+'; error = '+(performance.now()-endTime)+'ms','#00FF00');
     }
 
     // Use a requestAnimationFrame loop to schedule the start and animation of the visual countdown
@@ -546,8 +584,9 @@ function visualCountdown(value, changeTime, canvas, contrastColor) {
         }
         else { // Countdown is active
             const remainingTime = endTime - now;
-            if (remainingTime <= 0) {
-                displayTime(0);
+            if (remainingTime <= 0&&(latestTimeString!='0.00'&&latestTimeString!='0')) {
+                log('Forcing 0.00 at time stamp = '+performance.now()+'. Overshot target time ('+endTime+') by '+(-1*remainingTime)+'ms, jumping from latest time string = '+latestTimeString,'#00FF00');
+                displayTime(0,true);
             }
             else {
                 displayTime(remainingTime);
