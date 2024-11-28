@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Better Countdown
 // @namespace    http://tampermonkey.net/
-// @version      1.7
+// @version      1.8
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/better_countdown.user.js
 // @description  Drag and drop, audio cue, and precision countdown for Typeracer
@@ -21,13 +21,18 @@ function log(msg, color='#7DF9FF') {
     if(debug) console.log('%c [Countdown Alert] '+msg, 'color: '+color);
 }
 let steps = [];
+let targetTime;
+let finalTime=-1;
+let visualFinished=false;
 
 
 /*SETTINGS*/
-let debug, audio, volume, precision_countdown, show_decimals;
+let debug, audio, single_beep, background_only, volume, precision_countdown, show_decimals;
 const DEFAULT_SETTINGS = {
     debug: false,
     audio: true,
+    single_beep: false,
+    background_only: false,
     volume: 100,
     precision_countdown:true,
     show_decimals:false
@@ -42,6 +47,8 @@ addConfig(); // Add Tampermonkey config menu
 function loadSettings() {
     debug = GM_getValue(SETTINGS_PREFIX+"debug", DEFAULT_SETTINGS.debug);
     audio = GM_getValue(SETTINGS_PREFIX+"audio", DEFAULT_SETTINGS.audio);
+    single_beep = GM_getValue(SETTINGS_PREFIX+"single_beep", DEFAULT_SETTINGS.single_beep);
+    background_only = GM_getValue(SETTINGS_PREFIX+"background_only", DEFAULT_SETTINGS.background_only);
     volume = parseInt(GM_getValue(SETTINGS_PREFIX+"volume", DEFAULT_SETTINGS.volume));
     precision_countdown = GM_getValue(SETTINGS_PREFIX+"precision_countdown", DEFAULT_SETTINGS.precision_countdown);
     show_decimals = GM_getValue(SETTINGS_PREFIX+"show_decimals", DEFAULT_SETTINGS.show_decimals);
@@ -86,6 +93,16 @@ function openConfig() {
                     <input type="checkbox" id="myOption2" ${audio ? 'checked' : ''}>
                 </label>
                 <br><br>
+                <label id="singleBeepLabel" ${audio ? '' : 'style="opacity: 0.5; pointer-events:none!important;"'}>
+                    Single sound (at the 3s mark):
+                    <input type="checkbox" id="myOption6" ${single_beep ? 'checked' : ''}>
+                </label>
+                <br><br>
+                <label id="backgroundOnlyLabel" ${audio ? '' : 'style="opacity: 0.5; pointer-events:none!important;"'}>
+                    Only play sound in the background:
+                    <input type="checkbox" id="myOption7" ${background_only ? 'checked' : ''}>
+                </label>
+                <br><br>
                 <label id="volumeLabel" ${audio ? '' : 'style="opacity: 0.5; pointer-events:none!important;"'}>
                     Volume:
                     <input type="range" id="myOption3" min="0" max="100" value="${volume || 100}" style="width: 100%;">
@@ -122,15 +139,26 @@ function openConfig() {
         }
     }
 
+    // Grey out volume, single beep and background_only options when audio is off
     document.getElementById('myOption2').addEventListener('change', (event) => {
         const volumeLabel = document.getElementById('volumeLabel');
+        const singleBeepLabel = document.getElementById('singleBeepLabel');
+        const backgroundOnlyLabel = document.getElementById('backgroundOnlyLabel');
         if (event.target.checked) {
             volumeLabel.style.opacity='1';
             volumeLabel.style.pointerEvents='';
+            singleBeepLabel.style.opacity='1';
+            singleBeepLabel.style.pointerEvents='';
+            backgroundOnlyLabel.style.opacity='1';
+            backgroundOnlyLabel.style.pointerEvents='';
         }
         else {
             volumeLabel.style.opacity='0.5';
             volumeLabel.style.pointerEvents='none';
+            singleBeepLabel.style.opacity='0.5';
+            singleBeepLabel.style.pointerEvents='none';
+            backgroundOnlyLabel.style.opacity='0.5';
+            backgroundOnlyLabel.style.pointerEvents='none';
         }
     });
 
@@ -142,6 +170,8 @@ function saveSettings() {
     log('Reading new settings from UI');
     debug = document.getElementById("myOption1").checked;
     audio = document.getElementById("myOption2").checked;
+    single_beep = document.getElementById("myOption6").checked;
+    background_only = document.getElementById("myOption7").checked;
     volume = parseInt(document.getElementById('myOption3').value);
     precision_countdown = document.getElementById("myOption4").checked;
     show_decimals = document.getElementById("myOption5").checked;
@@ -150,6 +180,8 @@ function saveSettings() {
     log('Storing new settings');
     GM_setValue(SETTINGS_PREFIX+"debug", debug);
     GM_setValue(SETTINGS_PREFIX+"audio", audio);
+    GM_setValue(SETTINGS_PREFIX+"single_beep", single_beep);
+    GM_setValue(SETTINGS_PREFIX+"background_only", background_only);
     GM_setValue(SETTINGS_PREFIX+"volume", volume);
     GM_setValue(SETTINGS_PREFIX+"precision_countdown", precision_countdown);
     GM_setValue(SETTINGS_PREFIX+"show_decimals", show_decimals);
@@ -171,7 +203,7 @@ function closeConfig() {
 }
 
 function printSettings() {
-    log('Settings:\ndebug = '+debug+'\naudio = '+audio+'\nvolume = '+volume+'\nprecision_countdown = '+precision_countdown+'\nshow_decimals = '+show_decimals);
+    log('Settings:\ndebug = '+debug+'\naudio = '+audio+'\nsingle_beep = '+single_beep+'\nbackground_only = '+background_only+'\nvolume = '+volume+'\nprecision_countdown = '+precision_countdown+'\nshow_decimals = '+show_decimals);
 }
 
 
@@ -325,6 +357,7 @@ function elementMutate(mutations_list) {
                 log('Countdown popup detected at timestamp = '+timestamp,'#00FF00');
                 observeCountdown(added_node);
                 newDragAndDropCountdown(added_node);
+                observeInputField(); // for performance debugging
             }
         });
         mutation.removedNodes.forEach(function(removed_node) {
@@ -342,8 +375,6 @@ elementObserver.observe(document.body, {subtree: false, childList: true});
 // On new countdown popup, observe the text label within and create visual countdown canvas
 const CANVAS_WIDTH = 75; // in px
 const CANVAS_HEIGHT = CANVAS_WIDTH;
-
-
 function observeCountdown(countdown_popup) {
     let time_elements=countdown_popup.getElementsByClassName('time');
     if (time_elements.length === 0) return;
@@ -353,6 +384,13 @@ function observeCountdown(countdown_popup) {
     // A canvas is preferred to updating the textContent for faster content updates
     let canvas, contrastColor=''
     if(precision_countdown) {
+        let lightLabel = document.querySelector('.lightLabel');
+        if(lightLabel) {
+            let lightLabelContainer = lightLabel.parentElement;
+            log('Removing countdown text label (precision countdown mode)');
+            lightLabelContainer.style.visibility='hidden'; // Hiding countdown popup text
+            lightLabelContainer.style.position='absolute'; // And removing it from the popup
+        }
         let container = time_label.parentNode;
         canvas = container.querySelector('canvas.precision_time_canvas');
         if (!canvas) {
@@ -442,7 +480,7 @@ function onTextChange(newValue, changeTime, canvas, contrastColor) {
     if(countingDown>=2) {
         let step = changeTime-previousTickStamp;
         if(countingDown!=2) steps.push(step);
-        log('Time stamp = '+changeTime+', step = '+step+'ms','#00FF00');
+        // log('Time stamp = '+changeTime+', step = '+step+'ms','#00FF00');
         previousTickStamp = changeTime;
     }
     if(countingDown>2) return;
@@ -481,13 +519,53 @@ function countdownRemoval(removed_node) {
     countingDown=0;
     precision_countdown_started=false;
     if(debug) {
-        let averageStep = Math.round(steps.reduce((a, b) => a + b) / steps.length);
-        let minStep = Math.min(...steps);
-        let maxStep = Math.max(...steps);
-        log('All full steps:\n'+steps,'#00FF00');
-        log('Average step = '+averageStep+'; min = '+minStep+'; max = '+maxStep,'#00FF00');
-        steps = [];
+        if(steps!=[]) {
+            let averageStep = Math.round(steps.reduce((a, b) => a + b) / steps.length);
+            let minStep = Math.min(...steps);
+            let maxStep = Math.max(...steps);
+            log('All full steps:\n'+steps,'#00FF00');
+            log('Average step = '+averageStep+'; min = '+minStep+'; max = '+maxStep,'#00FF00');
+            steps = [];
+        }
+
+        finalTime=-1;
+        visualFinished=false;
     }
+}
+
+function observeInputField() {
+    if(!precision_countdown) return;
+
+    let textInputs = document.getElementsByClassName('txtInput');
+    if(textInputs.length===0) return;
+    let targetInput = textInputs[0];
+
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'disabled') {
+                const isDisabled = targetInput.hasAttribute('disabled');
+                if (!isDisabled) {
+                    const timestamp = performance.now();
+                    const error = targetTime-timestamp;
+                    log(`Input became editable at: ${timestamp} ms; target time (${targetTime}) was off by ${error} ms`,'#00FF00');
+                    if(finalTime===-1) {
+                        // Input became editable before the visual countdown reached 0
+                        finalTime = timestamp;
+                    }
+                    else { // Visual countdown reached 0 before input became editable
+                        const discrepancy = finalTime - timestamp;
+                        log('Total discrepancy between visual countdown 0.00 ('+finalTime+') and editable input ('+timestamp+') = '+ discrepancy+'ms','#00FF00');
+                    }
+                    observer.disconnect();
+                }
+            }
+        }
+    });
+
+    observer.observe(targetInput, {
+        attributes: true,
+        attributeFilter: ['disabled']
+    });
 }
 
 
@@ -500,11 +578,21 @@ function audioCountdown(value, changeTime, canvas, contrastColor) {
     // Schedule normal beeps
     for (let i = 1; i <= Math.min(value, 4) - 1; i++) {
         let delay = startDelay - i;
+        if(single_beep&&i!=3) continue;
+        if(i===3&&background_only) {
+            setTimeout(function() {
+                if(document.visibilityState === 'visible') {
+                    log('Background sounds only mode: tab is active, cancelling sounds');
+                    interruptSounds()
+                }
+            },delay*1000-250);
+        }
         log('Beep in ' + delay + ' seconds');
         playSoundAtTime(beepBuffer, now + delay);
     }
 
     // Schedule final beep
+    if(single_beep) return;
     log('Start beep in ' + startDelay + ' seconds');
     playSoundAtTime(startBeepBuffer, now + startDelay);
 }
@@ -531,6 +619,7 @@ function visualCountdown(value, changeTime, canvas, contrastColor) {
     let durationInSeconds = value - 1;
     let startTime = changeTime + 1500;
     let endTime = startTime + durationInSeconds * 1000;
+    targetTime=endTime;
     log('startTime = '+startTime+'; duration = '+(durationInSeconds*1000)+'ms; Calculated 0.00 target time = '+endTime,'#00FF00');
 
     const ctx = canvas.getContext('2d');
@@ -558,7 +647,7 @@ function visualCountdown(value, changeTime, canvas, contrastColor) {
 
         // Format time
         let timeString = Math.ceil(totalSeconds);
-        if (show_decimals) timeString = totalSeconds.toFixed(2);
+        if (show_decimals) timeString = totalSeconds.toFixed(2).replace('-0', '0');
         latestTimeString = timeString;
 
         // Clear the canvas before drawing
