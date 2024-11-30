@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Typeracer: Blacklist
 // @namespace    http://tampermonkey.net/
-// @version      0.0.7
+// @version      0.0.8
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/blacklist.user.js
 // @description  Hide guests/bots and users of your choice on maintrack/private tracks. Doesn't affect leaderboards, competitions, messages, or Race details pages
@@ -12,13 +12,20 @@
 // ==/UserScript==
 
 //settings
-const BLACK_LIST=[]; //eg: const BLACK_LIST=['poem','despot'];
-const BLOCK_GUESTS=true;
 const DEBUG = false;
+const RED_OUTLINE_MODE=false;
+
+const WHITE_LIST_MODE = false; // if WHITE_LIST_MODE is set to true, the script will hide everyone _except_ players in the WHITE_LIST
+const WHITE_LIST=[]; //eg: const WHITE_LIST=['poem','despot'];
+
+// if not in WHITE_LIST_MODE, the script will show everyone _except_ players in the BLACK_LIST
+const BLOCK_GUESTS=true; // Should the script hide guests
+const BLACK_LIST=[]; //eg: const BLACK_LIST=['poem','despot'];
+
+
 
 
 //no longer settings
-const RED_OUTLINE_MODE=false;
 const GUI_INTERVAL = 1000;
 const ELEMENT_CONFIG = {childList: true, subtree: true, attributes: true, characterData: false};
 const RANK_CONFIG = {characterData: false, attributes: false, childList: true, subtree: true};
@@ -110,14 +117,27 @@ function onNewPlayerRow(id) {
     }
     else {
         log('player #'+id+' is '+username);
-        if(BLACK_LIST.includes(username)) {
-            log('hiding blacklisted user', true);
-            blocked=true;
-            if(RED_OUTLINE_MODE) {
-                row.style.border='4px solid red';
+        if(WHITE_LIST_MODE) {
+            if(!WHITE_LIST.includes(username)){
+                log('hiding user (not whitelisted)', true);
+                blocked=true;
+                if(RED_OUTLINE_MODE) {
+                    row.style.border='4px solid red';
+                }
+                else
+                    row.style.display='none';
             }
-            else
-                row.style.display='none';
+        }
+        else {
+            if(BLACK_LIST.includes(username)) {
+                log('hiding blacklisted user', true);
+                blocked=true;
+                if(RED_OUTLINE_MODE) {
+                    row.style.border='4px solid red';
+                }
+                else
+                    row.style.display='none';
+            }
         }
     }
     if(RED_OUTLINE_MODE)
@@ -171,7 +191,8 @@ function editLabel(id,rank) {
         return;
     }
 
-    if((username=='guest_user'&&BLOCK_GUESTS)||BLACK_LIST.includes(username)) {
+    if((username=='guest_user'&&BLOCK_GUESTS)||(!WHITE_LIST_MODE&&BLACK_LIST.includes(username))||(WHITE_LIST_MODE&&!WHITE_LIST.includes(username)&&username!=='you')) {
+        log('[editlabel] '+username+' is either guest, not whitelisted, or blacklisted');
         labelRank.innerText='X';
         blocked_standings++;
     }
