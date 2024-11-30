@@ -31,8 +31,6 @@ Shows the all-time best and your personal best speed on the text you're about to
 Lets you move the race starting countdown anywhere you like.
 - <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/better_profiles.user.js">Better profiles</a>:<br>
 Cleaner Typeracer profiles.
-- <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/no_spacebar_scroll.user.js">No spacebar scroll</a>:<br>
-For those who like to mash keys before the race starts, prevents the page from scrolling down when you hit spacebar.
 
 
 ## For Monkeytype
