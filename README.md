@@ -27,8 +27,8 @@
 Embeds your unlagged, adjusted and raw speed results directly into TypeRacer.
 - <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/pacemaker.user.js">Pacemaker</a>:<br>
 Shows the all-time best and your personal best speed on the text you're about to race. Lets you enable a "pace caret" that moves at a customizable target speed.
-- <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/move_countdown.user.js">Drag-and-drop countdown</a>:<br>
-Lets you move the race starting countdown anywhere you like.
+- <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/move_countdown.user.js">Better countdown</a>:<br>
+Improved and customizable countdown popup: sound alerts, decimals, etc.
 - <b>[QOL]</b> <a href="https://github.com/PoemOnTyperacer/tampermonkey/raw/master/better_profiles.user.js">Better profiles</a>:<br>
 Cleaner Typeracer profiles.
 
