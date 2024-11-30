@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.22
+// @version      1.23
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -523,7 +523,7 @@ async function endpoints() {
     XMLHttpRequest.prototype.send = function (body) {
 
 
-        if (body) {
+        if (body&&typeof body==='string') {
             const splitBody = body.split("|");
             const endpoint = splitBody[6];
             const payload = splitBody[13];
@@ -1009,8 +1009,9 @@ async function getTextData(id) {
 
     let displayCount=document.querySelector('#displayCount');
     let displayDate=document.querySelector('#displayDate');
-    if(showCount)
+    if(showCount&&!isGuest) {
         displayCount.parentNode.parentNode.style.display='';
+    }
     if(showDate)
         displayDate.parentNode.parentNode.style.display='';
 
@@ -1233,7 +1234,7 @@ function makeDisplay() {
 
     // Fill display and remove sections according to settings
     let displayCount = document.querySelector('#displayCount');
-    if(showCount)
+    if(showCount&&!isGuest)
         displayCount.parentNode.parentNode.style.display='';
     document.querySelector('#displayDefault').innerText=targetPace+' WPM';
     if(useTb&&text_best_average!=null&&tba_username!=null) {
