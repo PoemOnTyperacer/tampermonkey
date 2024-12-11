@@ -734,6 +734,7 @@ function createPCaret() {
 border-radius: 10%;
 background-color: transparent;
 border: 3px solid;
+font-size: 9px;
 text-align: center;
 cursor: pointer;
 margin-right: 10px;
