@@ -6,7 +6,7 @@
   <h3 align="center">Tampermonkey userscripts for use with Typeracer, Monkeytype and Keymash</h3>
 
   <p align="center">
-    By poem#3305
+    By <a href="https://data.typeracer.com/pit/profile?user=poem">poem#3305</a>  
     <br />
     <br />
     <img src='https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/resources/summary.png'>
