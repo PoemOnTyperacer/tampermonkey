@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.25
+// @version      1.26
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -18,12 +18,13 @@
 // ==/UserScript==
 
 
+/*SETTINGS/VARIABLES*/
 // Debug settings
-let DEBUG;
-let DECIMAL_PLACES=2;
-let start_time=0; //ms
-const showDebugRectangles=false;
-const GUI_INTERVAL = 100;
+let DEBUG,
+    DECIMAL_PLACES=2,
+    start_time=0, //ms
+    showDebugRectangles=false,
+    GUI_INTERVAL = 100;
 
 // Context
 const responsiveTheme = typeof com_typeracer_redesign_Redesign === "function";
@@ -34,9 +35,8 @@ let universeMatch=UNIVERSE_REGEX.exec(CURRENT_URL);
 if(universeMatch!=null) {
     universe=universeMatch[1];
 }
-log('current universe: '+universe);
 
-
+// User settings
 let targetPace,useTb,targetRank,targetUsername,caretColor,showPb,showRank,showCount,showCaret,usePb,useRank,showId,showSource,showDefault,showFinal,showDate,ginoo75Mode;
 function setDefaultSettings() {
     targetPace=100;
@@ -57,29 +57,35 @@ function setDefaultSettings() {
     ginoo75Mode=false;
 }
 
-let GUITimeout,GUITimeout2;
-let menuOpen=false;
-let displayDiv;
+let GUITimeout,GUITimeout2; // Button animations
+let menuOpen=false; // Settings menu status
+let displayDiv; // Custom HTML container
 
+// Pace logic variables
 let pbPace;
 let rankPace;
 let pace=targetPace;
 
+// Status logic variables
 let username=null;
 let isGuest=null;
 let racing=false;
 let awaitRacing=false;
 let status='standby';
 let await_updatePlayerProgress=false;
+let update_tb_line=false;
+
+// Race data variables
 let text_id=null;
 let registered_speed = null;
 let text_best_average=null;
 let tba_username=null;
-let update_tb_line=false;
 
+// Rendered text layout
 let lineList=[];
 let rectList=[];
 
+// Pace caret settings
 let pCaret;
 let blinkDuration = 1;
 let caretThickness = 0.3;
@@ -87,13 +93,21 @@ let maxOpacity = 0.7;
 let minOpacity = 0.3;
 let caretType=0;
 let caretOffset=[];
+
+
+/*MAIN*/
 load_settings();
+log('current universe: '+universe);
+addConfig();
+setInterval(clock, GUI_INTERVAL);
+addStyles();
+createPCaret();
+endpoints();
 
 
-// log and utility
+/*LOG & UTILITY*/
 function log(msg, color='#7DF9FF') {
-    if(DEBUG)
-        console.log('%c [Pacemaker] '+msg, 'color: '+color);
+    if(DEBUG) console.log('%c [Pacemaker] '+msg, 'color: '+color);
 }
 function logSettings() {
     log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showSource='+showSource+'; debug='+DEBUG+'; ginoo75 mode='+ginoo75Mode+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showCount='+showCount+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
@@ -135,9 +149,47 @@ String.prototype.substringAfterNth = function (needle, n) {
     }
     return this.substring(index);
 }
+function timeSince(dateTimeString) {
+    const inputDate = new Date(dateTimeString + ' GMT+0000');
+    const currentDate = new Date();
+    const differenceInMs = currentDate - inputDate;
+
+    const differenceInMinutes = Math.round(differenceInMs / 60000);
+    if (differenceInMinutes <= 59) {
+        return `${differenceInMinutes} minute${differenceInMinutes > 1 ? 's' : ''} ago`;
+    }
+    const differenceInHours = Math.round(differenceInMinutes / 60);
+    if (differenceInHours <= 23) {
+        return `${differenceInHours} hour${differenceInHours > 1 ? 's' : ''} ago`;
+    }
+    const differenceInDays = Math.round(differenceInHours / 24);
+    if (differenceInDays <= 30) {
+        return `${differenceInDays} day${differenceInDays > 1 ? 's' : ''} ago`;
+    }
+    const differenceInMonths = Math.round(differenceInDays / 30);
+    if (differenceInMonths <= 11) {
+        return `${differenceInMonths} month${differenceInMonths > 1 ? 's' : ''} ago`;
+    }
+    const differenceInYears = Math.round(differenceInMonths / 12);
+    return `${differenceInYears} year${differenceInYears > 1 ? 's' : ''} ago`;
+}
+const prependEmoji = type => ({
+    book: '\u{1F4DA}',
+    movie: '\u{1F3AC}',
+    poem: '\u{1F4DC}',
+    song: '\u{1F3B5}',
+    software: '\u{1F4BB}',
+    game: '\u{1F3AE}',
+    other: '\u{1F516}'
+}[type] || '\u{1F516}') + ` ${type}`;
+function decodeHtml(html) {
+    var txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+}
 
 
-// Data/settings menu
+/*SETTINGS MENU, LOAD/SAVE DATA*/
 function load_settings(refreshTb=true) {
     targetPace=GM_getValue("targetPace");
     if(targetPace==undefined) {
@@ -147,8 +199,7 @@ function load_settings(refreshTb=true) {
         return;
     }
     targetUsername=GM_getValue("targetUsername");
-    if(targetUsername!=''&&refreshTb)
-        getTextBestAverage(targetUsername);
+    if(targetUsername!=''&&refreshTb) getTextBestAverage(targetUsername);
     useTb=!!+GM_getValue("useTb");
     targetRank=GM_getValue("targetRank");
     caretColor=GM_getValue("caretColor");
@@ -176,8 +227,7 @@ function addConfig() {
 function config() {
     if (typeof GM_setValue !== "undefined")
     {
-        if(menuOpen)
-            return;
+        if(menuOpen) return;
         menuOpen=true;
         function saveCfg()
         {
@@ -186,13 +236,10 @@ function config() {
             targetUsername=document.getElementById("targetUsername").value;
             update_tb_line=true;
             if(targetUsername=='') {
-                if(username!=tba_username)
-                    getTextBestAverage(username);
+                if(username!=tba_username) getTextBestAverage(username);
             }
-            else if(targetUsername!=tba_username)
-                getTextBestAverage(targetUsername);
-            else
-                update_tb_line=false;
+            else if(targetUsername!=tba_username) getTextBestAverage(targetUsername);
+            else update_tb_line=false;
             targetRank=document.getElementById("targetRank").value;
             caretColor=hexToRGB(document.getElementById("caretColor").value);
             setCaretRGB(caretColor);
@@ -209,7 +256,6 @@ function config() {
             showCaret=document.getElementById("showCaret").checked;
             usePb=document.getElementById("usePb").checked;
             useRank=document.getElementById("useRank").checked;
-
 
             GM_setValue("targetPace", targetPace);
             GM_setValue("useTb", useTb ? "1" : "0");
@@ -236,8 +282,7 @@ function config() {
             clearTimeout(GUITimeout);
             GUITimeout = setTimeout(function() {
                 let wowsers=document.getElementById("cfg_save");
-                if(wowsers==null)
-                    return;
+                if(wowsers==null) return;
                 wowsers.value = "Save";
             },1500);
         }
@@ -255,34 +300,122 @@ function config() {
             align-items: center;
             justify-content: center;
         `;
-        div.innerHTML = "<div style = 'margin: auto; overflow-y: auto; max-height: 90%; width: fit-content; border-radius:5px; height: fit-content; border: 1px solid black; color:#ffffff; background: #000000; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8888888; line-height: 1;'><b><br><center>Pacemaker</center></b>"
-            + "<center><span style='font-size: 45%'>powered by <a href='https://typeracerdata.com/' target='_blank'>typeracerdata.com</a></span></center>"
-            + "<div style='margin: 20px;'><br><span id='targetPaceSpan'><input id='targetPace' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Minimum pace (WPM)</span>"
-
-            + "<br><span id='useTbSpan' style='opacity:0.5;pointer-events:none;'><input id='useTb' type='checkbox' style='float: left; width:initial; padding: initial; margin-top:1.3em;'><span id='useTbDisplay' style='float:left;margin-top:1em;margin-left:1em;margin-bottom:1em;'>Use text best average as minimum pace: unknown</span></span>"
-
-            + "<div style='margin: auto;'><br><input id='targetUsername' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target username (empty=current)"
-            + "<div style='margin: auto;'><br><input id='targetRank' type='text' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> Target rank (eg: 10)"
-
-            + "<div style='margin: auto;'><br><input id='caretColor' type='color' size='7' style='display:inline; color: #ffffff; background-color: #000000; width:15%; height:1.5em; padding: initial; margin: initial;'> Caret color (r,g,b)"
-
-            + "<br><br><br><br></div><center><b>Show:</b>"
-            + "<br><br><input id='showId' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Text ID</span>"
-            + "<br><br><input id='showSource' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Source</span>"
-            + "<br><br><input id='showDefault' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Minimum pace/Text best average</span>"
-            + "<br><br><input id='showPb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best</span>"
-            + "<br><br><input id='showDate' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best date</span>"
-            + "<br><br><input id='showCount' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Total times completed</span>"
-            + "<br><br><input id='showRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Nth fastest (rank selected above)</span>"
-            + "<br><br><input id='showFinal' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Pace to beat</span>"
-            + "<br><br><input id='showCaret' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Pace caret</span>"
-            + "<br><br><br><br></div><center><b>Set pace to the fastest of:</b>"
-            + "<br><br><input id='usePb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best</span>"
-            + "<br><br><input id='useRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Nth fastest</span>"
-            + "<br><br><br><br></div><center><b>Other settings:</b>"
-            + "<br><br><input id='DEBUG' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Debug</span>"
-            + "<br><br><input id='ginoo75Mode' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>ginoo75 mode</span>"
-            + "<br><br><br><input id='cfg_save' type='button' value='Save'  style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'> <input id='cfg_close' type='button' value='Close'  style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'></center></div>";
+        div.innerHTML = `
+<div style='margin: auto; overflow-y: auto; max-height: 90%; width: fit-content; border-radius:5px; height: fit-content; border: 1px solid black; color:#ffffff; background: #000000; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8888888; line-height: 1;'>
+  <b>
+    <br>
+    <center>Pacemaker</center>
+  </b>
+  <center>
+    <span style='font-size: 45%'>powered by <a href='https://typeracerdata.com/' target='_blank'>typeracerdata.com</a>
+    </span>
+  </center>
+  <div style='margin: 20px;'>
+    <center>
+      <div id='targetPaceSpan' style='float:left;'>
+        <input id='targetPace' type='text' size='7'>
+        <span style='margin-left:1em;'>Minimum pace (WPM)</span>
+      </div>
+      <br>
+      <br>
+      <div id='useTbSpan' style='float: left; opacity:0.5;pointer-events:none;'>
+        <input id='useTb' type='checkbox'>
+        <span id='useTbDisplay' style='margin-left:1em;'>Use text best average as minimum pace: unknown</span>
+      </div>
+      <br>
+      <br>
+      <div style='float: left;'>
+        <input id='targetUsername' type='text' size='7' style='color: #ffffff; background-color: #000000;'>
+        <span style='margin-left:1em;'>Target username (empty=current)</span>
+      </div>
+      <br>
+      <br>
+      <div style='float: left;'>
+        <input id='targetRank' type='text' size='7' style='color: #ffffff; background-color: #000000;'>
+        <span style='margin-left:1em;'>Target rank (eg: 10)</span>
+      </div>
+      <br>
+      <br>
+      <div style='float: left;'>
+        <input id='caretColor' type='color' width='69px' style='color: #ffffff; background-color: #000000; height:20px; padding: initial; margin: initial;'>
+        <span style='margin-left:1em;'>Caret color (r,g,b)</span>
+      </div>
+      <br>
+      <br>
+      <br>
+      <br>
+      <b>Show:</b>
+      <br>
+      <br>
+      <input id='showId' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Text ID</span>
+      <br>
+      <br>
+      <input id='showSource' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Source</span>
+      <br>
+      <br>
+      <input id='showDefault' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Minimum pace/Text best average</span>
+      <br>
+      <br>
+      <input id='showPb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Personal best</span>
+      <br>
+      <br>
+      <input id='showDate' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Personal best date</span>
+      <br>
+      <br>
+      <input id='showCount' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Total times completed</span>
+      <br>
+      <br>
+      <input id='showRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Nth fastest (rank selected above)</span>
+      <br>
+      <br>
+      <input id='showFinal' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Pace to beat</span>
+      <br>
+      <br>
+      <input id='showCaret' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Pace caret</span>
+      <br>
+      <br>
+      <br>
+      <br>
+      <b>Set pace to the fastest of:</b>
+      <br>
+      <br>
+      <input id='usePb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Personal best</span>
+      <br>
+      <br>
+      <input id='useRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Nth fastest</span>
+      <br>
+      <br>
+      <br>
+      <br>
+      <b>Other settings:</b>
+      <br>
+      <br>
+      <input id='DEBUG' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Debug</span>
+      <br>
+      <br>
+      <input id='ginoo75Mode' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>ginoo75 mode</span>
+      <br>
+      <br>
+      <br>
+      <input id='cfg_save' type='button' value='Save' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'>
+      <input id='cfg_close' type='button' value='Close' style='display:inline; color: #ffffff; background-color: #000000; width:initial; padding: initial; margin: initial;'>
+    </center>
+  </div>
+</div>
+        `;
         document.body.appendChild(div);
 
         load_settings(false);
@@ -317,15 +450,12 @@ function config() {
         if(username!=null) {
             targetUsernameInput.placeholder=username;
         }
-        else
-            targetUsernameInput.placeholder='unknown';
+        else targetUsernameInput.placeholder='unknown';
         if(targetUsername=='') {
             if(!isGuest) {
-                if(username!=tba_username)
-                    getTextBestAverage(username);
+                if(username!=tba_username) getTextBestAverage(username);
             }
-            else
-                tba_username=null;
+            else tba_username=null;
         }
         document.getElementById("targetRank").value = targetRank;
         document.getElementById("caretColor").value = RGBToHex(caretColor);
@@ -352,9 +482,9 @@ function config() {
 }
 
 
-// Monitoring the Typeracer UI
-function clock() { // Determine: is guest/username/is racing
-    //Check for race start
+/*MONITORING TR UI*/
+function clock() {
+    // Check for race start
     let gameStatusLabels = document.getElementsByClassName('gameStatusLabel');
     let gameStatus = ((gameStatusLabels || [])[0] || {}).innerHTML || '';
     if(!racing&&(gameStatusLabels.length>0 && ( gameStatus == 'Go!' || gameStatus.startsWith('The race is on') ))) {
@@ -370,12 +500,48 @@ function clock() { // Determine: is guest/username/is racing
             raceStart();
         }
     }
-    if(racing&&((gameStatusLabels.length==0) || (document.getElementsByClassName('rank')[0].innerText=='Done!'||document.getElementsByClassName('rank')[0].innerText.includes('Place')/*gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')*/))){
+    // Check for race end
+    if(racing&&((gameStatusLabels.length==0) || (document.getElementsByClassName('rank')[0].innerText=='Done!'||document.getElementsByClassName('rank')[0].innerText.includes('Place')))){
         racing = false;
+        log('no longer racing (UI)');
         raceEnd();
     }
 
+    // Logged in status/username
     let current_username;
+    if(responsiveTheme) {
+        let loginButtons=document.getElementsByClassName('signIn');
+        if(loginButtons.length==0) {
+            let username_tag=document.getElementsByClassName('userNameLabel')[0];
+            if(!username_tag) /*not done loading*/ return;
+            if(username_tag.parentNode.classList=='') { /*wrong username tag*/ return;
+            }
+            if(isGuest||isGuest==null) {
+                isGuest=false;
+                log('logged in');
+            }
+            onLoginCommon(username_tag);
+        }
+        else {
+            if(isGuest) return;
+            onLogoutCommon();
+        }
+    }
+    else { //classic theme
+        let usernameLabel= document.querySelector('.mainUserInfoBox .userNameLabel');
+        if(!usernameLabel) /* not done loading*/ return;
+        if(usernameLabel.innerText=='Guest') {
+            if(isGuest) return;
+            onLogoutCommon();
+        }
+        else {
+            if(isGuest||isGuest==null) {
+                isGuest=false;
+                log('logged in');
+            }
+            onLoginCommon(usernameLabel);
+        }
+    }
     function onLogoutCommon() {
         log('logged out');
         if(targetUsername=='') {
@@ -387,67 +553,25 @@ function clock() { // Determine: is guest/username/is racing
     }
     function onLoginCommon(label) {
         current_username=label.innerText;
-        if(current_username.includes('('))
-            current_username=/.*\((.*)\)$/.exec(current_username)[1];
+        if(current_username.includes('(')) current_username=/.*\((.*)\)$/.exec(current_username)[1];
         if(username!=current_username) {
             log('username: '+current_username);
             username=current_username;
-            if(text_best_average==null&&tba_username==null)
-                getTextBestAverage(username);
-        }
-    }
-    //Refresh username
-    if(responsiveTheme) {
-        let loginButtons=document.getElementsByClassName('signIn');
-
-        if(loginButtons.length==0) {
-            let username_tag=document.getElementsByClassName('userNameLabel')[0];
-            if(!username_tag) //not done loading
-                return;
-            if(username_tag.parentNode.classList=='') { //wrong username tag
-                return;
-            }
-            if(isGuest||isGuest==null) {
-                isGuest=false;
-                log('logged in');
-            }
-            onLoginCommon(username_tag);
-        }
-        else {
-            if(isGuest)
-                return;
-            onLogoutCommon();
-        }
-    }
-    else {//classic theme
-        let usernameLabel= document.querySelector('.mainUserInfoBox .userNameLabel');
-        if(!usernameLabel)// not done loading
-            return;
-        if(usernameLabel.innerText=='Guest') {
-            if(isGuest)
-                return;
-            onLogoutCommon();
-        }
-        else {
-            if(isGuest||isGuest==null) {
-                isGuest=false;
-                log('logged in');
-            }
-            onLoginCommon(usernameLabel);
+            if(text_best_average==null&&tba_username==null) getTextBestAverage(username);
         }
     }
 }
 
+// To position the pace caret, detect the exact shape of the rendered race text
+//Thanks Ben Nadel for this helpful article on detecting rendered line breaks: https://www.bennadel.com/blog/4310-detecting-rendered-line-breaks-in-a-text-node-in-javascript.htm
 function getRenderedTextData() {
     let textDivContainer = document.querySelector('.inputPanel tbody tr td table tbody tr td div');
     textDivContainer.style.position='relative';
     let [lines, rects]=extractLinesFromDiv(textDivContainer);
     logLines(lines);
 
-    //Thanks Ben Nadel for this helpful article on detecting rendered line breaks: https://www.bennadel.com/blog/4310-detecting-rendered-line-breaks-in-a-text-node-in-javascript.htm
     function logLines(lines) {
-        if(!DEBUG)
-            return;
+        if(!DEBUG) return;
         console.group('%c [Pacemaker] rendered lines of text', 'color: #7DF9FF');
         lines.forEach(
             function iterator(line, i) {
@@ -456,6 +580,7 @@ function getRenderedTextData() {
         );
         console.groupEnd();
     }
+
     function getTextNodes(node) {
         var textNodes = [];
         if (node.nodeType == 3) {
@@ -504,6 +629,7 @@ function getRenderedTextData() {
                 lineCharacters.push(textNode.textContent.charAt(i));
             }
         });
+
         // Push last line and draw its box
         if (lineCharacters.length) {
             lines.push(lineCharacters.join(""));
@@ -529,8 +655,7 @@ function getRenderedTextData() {
         box.style.width = (right - left) + "px";
         box.style.height = (bottom - top) + "px";
         box.style.background= 'transparent';
-        if(DEBUG&&showDebugRectangles)
-            box.style.background = 'rgba(76, 175, 80, 0.1)';
+        if(DEBUG&&showDebugRectangles) box.style.background = 'rgba(76, 175, 80, 0.1)';
         parent.appendChild(box);
         return [top,left,(bottom-top),(right-left),box];
     }
@@ -539,14 +664,12 @@ function getRenderedTextData() {
 }
 
 
-
-//Monitoring Typeracer requests
+/*MONITORING TYPERACER REQUESTS*/
 async function endpoints() {
     //ensure compatibility with Adjusted Speed 1.7.0 and further
     if (!XMLHttpRequest.prototype.oldSend3) {
         XMLHttpRequest.prototype.oldSend3 = XMLHttpRequest.prototype.send;
     }
-
     XMLHttpRequest.prototype.send = function (body) {
 
 
@@ -554,7 +677,6 @@ async function endpoints() {
             const splitBody = body.split("|");
             const endpoint = splitBody[6];
             const payload = splitBody[13];
-            // log('[endpoints] endpoint='+endpoint+' ; logPayload='+payload+' ; body='+body.toString(),'##5A5A5A');
 
             const join_game_endpoints = ["joinStandaloneGame", "joinSinglePlayerGame", "joinSameReplayGame", "joinRecordedReplayGame", "joinInstantReplayGame"];
             const join_room_endpoints = ["createAndJoinCustomRoom","joinRoom","joinGameInRoom"];
@@ -562,68 +684,75 @@ async function endpoints() {
             const leave_room_endpoint = "leaveRoom";
             const navigation_endpoints = join_game_endpoints+join_room_endpoints+[leave_game_endpoint,leave_room_endpoint];
 
+            // Practice race: detected by the UI clock. startGameTask marks the actual race start.
             if(endpoint=="startGameTask"&&awaitRacing) {
                 awaitRacing=false;
                 racing=true;
                 log('user started practice race');
                 raceStart();
             }
-            if (endpoint === "updatePlayerProgress" && payload.startsWith("TLv1")) { //catch and store log
-                //log("[endpoints] race log payload="+payload,'#D3D3D3');
+
+            // Monitor updatePlayerProgress requests and responses, for typing logs and race result data
+            if (endpoint === "updatePlayerProgress" && payload.startsWith("TLv1")) {
+                // Catch and store log from the request
                 let typingLog = payload.substring(0, payload.indexOf("\\!")).substringAfterNth(",", 3);
-                log('[endpoints] log:\n'+typingLog,'#D3D3D3');
                 let newTypingLog = payload.substring(payload.indexOf("\\!")+2);
+
+                log('[endpoints] log:\n'+typingLog,'#D3D3D3');
                 log('[endpoints] New log:\n'+newTypingLog,'#D3D3D3');
+
+                // Wait for response, then read and store registered speed
                 this.addEventListener("load", function() {
                     try {
                         const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
                         let resp_len = responseJSON.length;
+
+                        // Only look for registered speed if the race has ended
                         let gameStatus = ((document.getElementsByClassName('gameStatusLabel') || [])[0] || {}).innerHTML || '';
                         if (gameStatus == 'The race has ended.' || gameStatus.startsWith('You finished')) {
                             registered_speed = responseJSON[resp_len-19];
-                            //log('full response JSON:\n'+responseJSON);
                             log('[endpoints] caught registered_speed='+registered_speed,'#D3D3D3');
-                            // displayResult(registered_speed);
                         }
                         // registered_id = responseJSON[resp_len-17];
                         // let points = responseJSON[resp_len-15];
                         // let accuracy = responseJSON[resp_len-10];
-                        // log('[endpoints] registered speed='+registered_speed+'; points='+points+'; accuracy='+accuracy+'; id='+id,'#D3D3D3');
                     }
                     catch(error){
                         log("[endpoints] error while getting log "+endpoint+" response: "+error+'\nResponse text: '+this.responseText,'#ff0000');
                     }
                 });
             }
+            // Monitor other endpoints (contained in the request) to follow as user navigates the game
             this.addEventListener("load", function() {
                 try {
                     let entered_new_game=false;
-                    if (navigation_endpoints.includes(endpoint)) { //navigation
+                    if (navigation_endpoints.includes(endpoint)) {
+                        // Updating UI nav status
                         let new_status="standby";
-                        if(endpoint==="joinStandaloneGame")
-                            new_status="public";
-                        else if(endpoint==="joinSinglePlayerGame")
-                            new_status="practice";
-                        else if(endpoint==="joinRecordedReplayGame"||endpoint==="joinInstantReplayGame")
-                            new_status="ghost";
-                        else if(endpoint==="joinSameReplayGame")
-                            new_status="SameReplayGame";
-                        else if(endpoint=='createAndJoinCustomRoom'||endpoint=='joinRoom')
-                            new_status='customRoom';
+                        if(endpoint==="joinStandaloneGame") new_status="public";
+                        else if(endpoint==="joinSinglePlayerGame") new_status="practice";
+                        else if(endpoint==="joinRecordedReplayGame"||endpoint==="joinInstantReplayGame") new_status="ghost";
+                        else if(endpoint==="joinSameReplayGame") new_status="SameReplayGame";
+                        else if(endpoint=='createAndJoinCustomRoom'||endpoint=='joinRoom') new_status='customRoom';
                         else if(endpoint=='joinGameInRoom') {
                             log("[endpoints] joined room game",'#D3D3D3');
                             new_status='customRoomGame';
+                            // Joining game in private track: getting rendered text shape
                             log("[endpoints] getting rendered text data",'#D3D3D3');
                             getRenderedTextData();
                         }
+                        //Leaving game while still in private track
                         else if(endpoint=='leaveGame'&&status=='customRoomGame') {
                             new_status='customRoom';
                             log("[endpoints] left custom room race, still in custom room.",'#D3D3D3');
                         }
+                        // WIP (private track logic is annoying)
                         else if(endpoint=='stopGameInRoom') {
                             log('[endpoint] stopgameinroom actions here','red');
                         }
                         log("[endpoints] new_status="+new_status,'#D3D3D3');
+
+                        // Joining game (other than private track (except initial private track join (FML)))
                         if(new_status!="standby"&&!(endpoint=='leaveGame'&&status=='customRoomGame')&&new_status!='customRoomGame') {
                             log("[endpoints] entered new game",'#D3D3D3');
                             pbPace=null;
@@ -635,6 +764,7 @@ async function endpoints() {
                             log("[endpoints] getting rendered text data",'#D3D3D3');
                             getRenderedTextData();
                         }
+                        // If back to standby, remove custom container if necessary
                         if(new_status=='standby') {
                             if(displayDiv) {
                                 displayDiv.remove();
@@ -642,31 +772,33 @@ async function endpoints() {
                             }
                         }
                         status=new_status;
+                        // If back to standby, stop waiting for the updatePlayerProgress that contains the next private track text ID, if necessary
                         if(new_status=='standby'&&await_updatePlayerProgress) {
                             log('New status standby: no longer waiting for updatePlayerProgress');
                             await_updatePlayerProgress=false;
                         }
                     }
 
-
+                    // When in private track, the next text ID is contained in some random updatePlayerProgress
+                    // To catch it, we need to await_updatePlayerProgress until the right one arrives
                     const responseJSON = JSON.parse(this.responseText.substring(this.responseText.indexOf("[")));
                     if(endpoint=='updatePlayerProgress'&&await_updatePlayerProgress) {
                         if(responseJSON[0]=='0') {
+                            // Catch ID
                             text_id=responseJSON[responseJSON.length-21];
                             log('[endpoints] (private track new race) text id='+text_id,'#D3D3D3');
                             await_updatePlayerProgress=false;
+                            // Start custom HTML actions
                             makeDisplay();
                             pbPace=null;
                             registered_speed=null;
                             rankPace=null;
                             pickPace();
-                            getTextData(text_id);
+                            getTextData(text_id); // From TRData
                         }
                     }
+                    // On entering a game (other than non-initial private track), retrieve the text ID from response
                     if(entered_new_game) {
-                        //log the whole thing:
-                        // log("[endpoints] "+endpoint+" response JSON: " + responseJSON.toString(),'#5A5A5A');
-
                         if(endpoint=='createAndJoinCustomRoom'||endpoint=='joinRoom') {
                             if(responseJSON.length>50) {
                                 text_id=responseJSON[responseJSON.length-26];
@@ -675,25 +807,17 @@ async function endpoints() {
                                 text_id=responseJSON[responseJSON.length-20];
                             }
                             log('[endpoints] (private track) text id='+text_id,'#D3D3D3');
-                            // console.group('%c [Pacemaker] [endpoints] responseJSON breakdown:', 'color: #5A5A5A');
-                            // responseJSON.forEach(
-                            //     function iterator(value, i) {
-                            //         console.log(i, value);
-                            //     }
-                            // );
-                            // console.groupEnd();
                         }
 
                         else {
                             text_id=responseJSON[12];
                             log('[endpoints] text id='+text_id,'#D3D3D3');
                         }
-                        getTextData(text_id);
+                        getTextData(text_id); // From TRData
                     }
                 }
                 catch(error){
-                    if(endpoint!='getSponsoredNotice')
-                        log("[endpoints] error while getting "+endpoint+" response: "+error+'\nResponse text: '+this.responseText,'#ff0000');
+                    if(endpoint!='getSponsoredNotice') log("[endpoints] error while getting "+endpoint+" response: "+error+'\nResponse text: '+this.responseText,'#ff0000');
                 }
             });
         }
@@ -702,110 +826,132 @@ async function endpoints() {
 }
 
 
-
-
-// Creating/animating caret
-function createPCaret() {
-    pCaret=document.createElement('div');
-    pCaret.style.visibility='hidden';
-    pCaret.id='pCaret';
-    document.body.insertAdjacentHTML("beforeend",`<style>
+/*STYLES*/
+function addStyles() {
+    document.body.insertAdjacentHTML("beforeend",
+`<style>
 #displayPb1 {
-margin-left: 1.5em;
+	margin-left: 1.5em;
 }
+
 .import-button {
-position:absolute;
-border-radius: 15%;
-height: 2.2em;
-width: 2.2em;
-background-color: transparent;
-border: 2px solid;
-font-size: 9px;
-text-align: center;
-cursor: pointer;
-font-family: Lato, sans-serif;
+	position: absolute;
+	border-radius: 15%;
+	height: 2.2em;
+	width: 2.2em;
+	background-color: transparent;
+	border: 2px solid;
+	font-size: 9px;
+	text-align: center;
+	cursor: pointer;
+	font-family: Lato, sans-serif;
 }
+
 .import-button:hover {
-    -webkit-filter: brightness(50%);
-    -webkit-transition: all 0.5s ease;
-    -moz-transition: all 0.5s ease;
-    -o-transition: all 0.5s ease;
-    -ms-transition: all 0.5s ease;
-    transition: all 0.5s ease;
+	-webkit-filter: brightness(50%);
+	-webkit-transition: all 0.5s ease;
+	-moz-transition: all 0.5s ease;
+	-o-transition: all 0.5s ease;
+	-ms-transition: all 0.5s ease;
+	transition: all 0.5s ease;
 }
- #pCaret {
-  background-color: white;
-  position: absolute;
-  z-index:1000;
-  border-radius: 15%;
-}
-.box {
-  position: absolute !important;
-}
+
 #pCaretDisplay {
-background-color: transparent/*rgba(0,0,0,0.7)*/!important;
-padding:5px;
-border-radius:5px;
-margin-bottom:10px;
-border: 3px solid transparent;
+	position: relative;
+	display: inline-block;
+}
+
+.heart-icon {
+	position: absolute;
+	top: 5px;
+	left: 5px;
+	opacity: 0.6;
+	font-size: 16px;
+	cursor: pointer;
+	animation: heartbeat 2s infinite;
+}
+
+.heart-icon:hover {
+	opacity: 1;
+}
+
+@keyframes heartbeat {
+	0% {
+		transform: scale(1);
+	}
+
+	20% {
+		transform: scale(1.05);
+	}
+
+	40% {
+		transform: scale(1);
+	}
+
+	60% {
+		transform: scale(1.05);
+	}
+
+	80% {
+		transform: scale(1);
+	}
+
+	100% {
+		transform: scale(1);
+	}
+}
+
+#pCaretDisplay {
+	background-color: transparent
+		/*rgba(0,0,0,0.7)*/
+		 !important;
+	padding: 5px;
+	border-radius: 5px;
+	margin-bottom: 10px;
+	border: 3px solid transparent;
+}
+
+#pCaret {
+	background-color: white;
+	position: absolute;
+	z-index: 1000;
+	border-radius: 15%;
+}
+
+.box {
+	position: absolute !important;
 }
 </style>
-
-<style>
-  /* Heart icon styling */
-    #pCaretDisplay {
-    position: relative;
-    display: inline-block;
-  }
-  .heart-icon {
-    position: absolute;
-    top: 5px;
-    left: 5px;
-    opacity: 0.6;
-    font-size: 16px;
-    cursor: pointer;
-    animation: heartbeat 2s infinite;
-  }
-  .heart-icon:hover {
-    opacity: 1;
-  }
-  @keyframes heartbeat {
-    0% { transform: scale(1); }
-    20% { transform: scale(1.05); }
-    40% { transform: scale(1); }
-    60% { transform: scale(1.05); }
-    80% { transform: scale(1); }
-    100% { transform: scale(1); }
-  }
-</style>
-
 <style id='pCaretBlinkStyle'></style>
 <style id='pCaretThicknessStyle'></style>
-<style id='pCaretAnimationStyle'></style>`);
+<style id='pCaretAnimationStyle'></style>
+`);
     function setBlinkDuration() {
         let caretAnimationStyle=document.getElementById('pCaretAnimationStyle');
-        caretAnimationStyle.innerHTML = `#pCaret{
-    -moz-transition:all `+blinkDuration+`s ease-in-out;
-    -webkit-transition:all `+blinkDuration+`s ease-in-out;
-    -o-transition:all `+blinkDuration+`s ease-in-out;
-    -ms-transition:all `+blinkDuration+`s ease-in-out;
+        caretAnimationStyle.innerHTML = `
+#pCaret {
+	-moz-transition: all `+blinkDuration+`s ease-in-out;
+	-webkit-transition: all `+blinkDuration+`s ease-in-out;
+	-o-transition: all `+blinkDuration+`s ease-in-out;
+	-ms-transition: all `+blinkDuration+`s ease-in-out;
 
-    transition:all `+blinkDuration+`s ease-in-out;
-    -moz-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
+	transition: all `+blinkDuration+`s ease-in-out;
+	-moz-animation: blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
 
-    /* Firefox */
-    -webkit-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
-    /* Webkit */
-    -ms-animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
-    /* IE */
-    animation:blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
-    /* Opera */
-    -webkit-transition: background-color `+(2000*blinkDuration)+`ms linear;
-    -moz-transition: background-color `+(2000*blinkDuration)+`ms linear;
-    -o-transition: background-color `+(2000*blinkDuration)+`ms linear;
-    -ms-transition: background-color `+(2000*blinkDuration)+`ms linear;
-    transition: background-color `+(2000*blinkDuration)+`ms linear;
-    }`;
+	/* Firefox */
+	-webkit-animation: blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
+	/* Webkit */
+	-ms-animation: blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
+	/* IE */
+	animation: blink2 normal `+(3*blinkDuration)+`s infinite ease-in-out;
+	/* Opera */
+	-webkit-transition: background-color `+(2000*blinkDuration)+`ms linear;
+	-moz-transition: background-color `+(2000*blinkDuration)+`ms linear;
+	-o-transition: background-color `+(2000*blinkDuration)+`ms linear;
+	-ms-transition: background-color `+(2000*blinkDuration)+`ms linear;
+	transition: background-color `+(2000*blinkDuration)+`ms linear;
+}
+        `;
     }
     setBlinkDuration();
     setCaretRGB(caretColor);
@@ -815,8 +961,7 @@ border: 3px solid transparent;
         if(caretType===0) {
             outputStyle=`#pCaret {width: `+caretThickness+`ch;height: 1.5em;}`;
             caretOffset=[0,0];
-            if(!responsiveTheme)
-                caretOffset=[0,2];
+            if(!responsiveTheme) caretOffset=[0,2];
         }
         else if(caretType===1) {
             outputStyle=`#pCaret {width: 1.2ch;height: `+caretThickness+`em;`;
@@ -831,31 +976,43 @@ function setCaretRGB(color) {
     let maxOpacity = 0.7;
     let minOpacity = 0.3;
     caretBlinkStyle.innerHTML = `
-    @keyframes blink2 {
-    0% {
-           background-color: rgba(`+color+`,`+maxOpacity+`)
-    }
-    50% {
-           background-color: rgba(`+color+`,`+minOpacity+`)
-    }
-    100% {
-           background-color: rgba(`+color+`,`+maxOpacity+`)
-    }
+@keyframes blink2 {
+	0% {
+		background-color: rgba(`+color+`, `+maxOpacity+`)
+	}
+
+	50% {
+		background-color: rgba(`+color+`, `+minOpacity+`)
+	}
+
+	100% {
+		background-color: rgba(`+color+`, `+maxOpacity+`)
+	}
 }
+
 @-webkit-keyframes blink2 {
-    0% {
-           background-color: rgba(`+color+`,`+maxOpacity+`)
-    }
-    50% {
-           background-color: rgba(`+color+`,`+minOpacity+`)
-    }
-    100% {
-           background-color: rgba(`+color+`,`+maxOpacity+`)
-    }
+	0% {
+		background-color: rgba(`+color+`, `+maxOpacity+`)
+	}
+
+	50% {
+		background-color: rgba(`+color+`, `+minOpacity+`)
+	}
+
+	100% {
+		background-color: rgba(`+color+`, `+maxOpacity+`)
+	}
 }
     `
 }
 
+
+/*CREATING/ANIMATING PACE CARET*/
+function createPCaret() {
+    pCaret=document.createElement('div');
+    pCaret.style.visibility='hidden';
+    pCaret.id='pCaret';
+}
 async function animateCaret(lines, rects) {
     if(lines.length!=rects.length) {
         log('[animation] error: '+lines.length+' lines but '+rects.length+' rects', '#ff0000');
@@ -863,10 +1020,11 @@ async function animateCaret(lines, rects) {
     }
     let textDivContainer = document.querySelector('.inputPanel tbody tr td table tbody tr td div');
     textDivContainer.appendChild(pCaret);
-    await sleep(start_time);
+    await sleep(start_time); // Configurable pace caret "reaction time" after race start
+
+    // Animate each pace caret line individually
     for(let i=0;i<lines.length;i++) {
-        if(!racing)
-            break;
+        if(!racing) break;
         let line=lines[i];
         let character_count = line.length;
         let [top, left, height, width]=rects[i];
@@ -894,24 +1052,25 @@ function resetCaretAnimation() {
 
 
 
-// Main logic
+/*MAIN LOGIC*/
 function raceStart() {
     log('racing');
+    // CharlieOG mode soon:tm:?
     // if(!isGuest)
     //     backgroundImportTyperacerData(username);
     pickPace(true);
-    if(showCaret)
-        animateCaret(lineList, rectList);
+    if(showCaret) animateCaret(lineList, rectList);
 }
 
 function raceEnd() {
-    log('no longer racing (UI)');
     resetCaretAnimation();
     let rankPanelEl = document.querySelector('.rankPanelWpm-self');
     if(!rankPanelEl) {
         log('[raceEnd] no rank panel found. Ending function');
         return;
     }
+
+    // Fetch and display the registered speed user got on the race, either from the UI, or from endpoints with better precision
     let temp_registered_speed = parseInt(rankPanelEl.innerText);
     log('[raceEnd] read UI registered speed = '+temp_registered_speed+'; latest known endpoint registered speed = '+registered_speed,'#D3D3D3');
     if(Math.round(registered_speed)==temp_registered_speed&&(registered_speed%1!=0)) {
@@ -922,15 +1081,24 @@ function raceEnd() {
         log('[raceEnd] using UI registered speed','#D3D3D3');
     }
     displayResult(temp_registered_speed);
+
+    // Private room non-initial race end: start waiting for the updatePlayerProgress that will contain the next text ID
     if(status=='customRoomGame'||status=='customRoom') {
         await_updatePlayerProgress=true;
         log('end of a private track race. Awaiting updatePlayerProgress with next text ID');
     }
 }
 
+// Pace picking logic
 function pickPace(forced=false){
     log('[pickpace] starting (forced='+forced+')','#D3D3D3');
+    // Forced will be set to "true" when the race starts, if no pace has been picked yet
+    // When forced, this function will no longer wait for potential rank or pb speed data
+
+    // Begin with default pace
     let tempPace=targetPace;
+
+    // Replace with tba if wanted, and if available
     if(useTb&&text_best_average!=null&&tba_username!=null) {
         log('[pickpace] replacing minimum pace ('+targetPace+') with tba ('+text_best_average+')','#D3D3D3');
         tempPace=text_best_average;
@@ -938,34 +1106,39 @@ function pickPace(forced=false){
     else {
         log('[pickpace] continuing with minimum pace ('+targetPace+')\nuseTb='+useTb+'; text_best_average='+text_best_average+'; tba_username='+tba_username,'#D3D3D3');
     }
+
+    // If rank wanted as pace
     if(useRank) {
+        // If rank speed not yet available, wait some more
         if(rankPace==null&&!forced) {
             log('[pickpace] failed: useRank=true, but no rankPace yet','#D3D3D3');
             return;
         }
-        if(rankPace>tempPace)
-            tempPace=rankPace;
+        // Replace with rank speed if available and if higher
+        if(rankPace>tempPace) tempPace=rankPace;
     }
+
+    // If pb wanted as pace
     if(usePb) {
+        // If pb speed not yet available, wait some more
         if(pbPace==null&&!forced) {
             log('[pickpace] failed: usePb=true, but no pbPace yet','#D3D3D3');
             return;
         }
+        // Replace with pb speed if available and if higher
         if(pbPace>tempPace&&pbPace!='none') {
             tempPace=pbPace;
         }
     }
     pace=tempPace;
     log('[pickpace] Success: (forced='+forced+') : '+pace+' pace was picked','#D3D3D3');
-    if(showFinal)
-        document.querySelector('#displayPace').innerText=parseFloat(pace).toFixed(DECIMAL_PLACES)+' WPM';
+
+    // Display final picked pace if necessary
+    if(showFinal) document.querySelector('#displayPace').innerText=parseFloat(pace).toFixed(DECIMAL_PLACES)+' WPM';
 }
 
 
-
-
-
-// Fetching data from Typeracerdata
+/*GETTING, AND DISPLAYING, TYPERACER DATA FROM TYPERACERDATA*/
 function getTextBestAverage(user) {
     log('[getTextBestAverage] getting tba for user '+user,'#D3D3D3');
     let text_best_url = 'https://www.typeracerdata.com/profile?last=1&universe='+universe+'&username='+user;
@@ -981,7 +1154,6 @@ function getTextBestAverage(user) {
     });
 
     function textBestProcess(responseHTML) {
-        // log('[getTextBestAverage] full responseHTML:\n'+responseHTML);
         const tbRegex=/<td>(.*) wpm \(.+total texts raced\)<\/td>/;
         let tbMatch=tbRegex.exec(responseHTML);
         if(tbMatch==null) {
@@ -990,8 +1162,7 @@ function getTextBestAverage(user) {
             text_best_average=null;
             if(update_tb_line) {
                 let useTbDisplay=document.getElementById('useTbDisplay');
-                if(useTbDisplay)
-                    useTbDisplay.innerText='Use text best average as minimum pace: unknown';
+                if(useTbDisplay) useTbDisplay.innerText='Use text best average as minimum pace: unknown';
                 update_tb_line=false;
             }
             return;
@@ -1000,8 +1171,7 @@ function getTextBestAverage(user) {
         log('[getTextBestAverage] retrieved tba = '+text_best_average+' for user '+user,'#D3D3D3');
         if(update_tb_line) {
             let useTbDisplay=document.getElementById('useTbDisplay');
-            if(useTbDisplay)
-                useTbDisplay.innerText='Use text best average as minimum pace: '+text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
+            if(useTbDisplay) useTbDisplay.innerText='Use text best average as minimum pace: '+text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
             update_tb_line=false;
         }
     }
@@ -1009,8 +1179,7 @@ function getTextBestAverage(user) {
 
 async function getTextData(id) {
     log('[getdata] getting text data with id='+id,'#D3D3D3');
-    if(showId)
-        document.querySelector('#displayId').innerText='#'+id;
+    if(showId) document.querySelector('#displayId').innerText='#'+id;
 
     // top N data
     let text_leaderboard_url = 'https://typeracerdata.com/text?universe='+universe+'&id='+id+'&rank_start='+targetRank+'&rank_end='+targetRank;
@@ -1058,20 +1227,6 @@ async function getTextData(id) {
         rankPace=top_WPM;
         pickPace();
     }
-    const prependEmoji = type => ({
-        book: '\u{1F4DA}',
-        movie: '\u{1F3AC}',
-        poem: '\u{1F4DC}',
-        song: '\u{1F3B5}',
-        software: '\u{1F4BB}',
-        game: '\u{1F3AE}',
-        other: '\u{1F516}'
-    }[type] || '\u{1F516}') + ` ${type}`;
-    function decodeHtml(html) {
-        var txt = document.createElement("textarea");
-        txt.innerHTML = html;
-        return txt.value;
-    }
 
     // account PB data
     let tempUsername;
@@ -1103,8 +1258,7 @@ async function getTextData(id) {
 
 
     let displayDate=document.querySelector('#displayDate');
-    if(showDate)
-        displayDate.style.display='';
+    if(showDate) displayDate.style.display='';
 
     GM_xmlhttpRequest ( {
         method: 'GET',
@@ -1118,7 +1272,6 @@ async function getTextData(id) {
         let displayCount=document.querySelector('#displayCount');
         let displayDate=document.querySelector('#displayDate');
 
-        // log('[getdata] text history response text:\n'+responseHTML,'#D3D3D3');
         const emptyRegex=/(Sorry, that username has not yet completed any races on that text.)/;
         let emptyMatch=emptyRegex.exec(responseHTML);
         if(emptyMatch!=null) {
@@ -1140,7 +1293,6 @@ async function getTextData(id) {
             return;
         }
 
-
         // if text has already been completed, find personal best
         responseHTML=responseHTML.replace(/(\r\n|\n|\r)/gm, "");
         const dateAndWPMRegex=/.+?#ddd;">.+?<\/td>  <td>(.+?)<.+?">(.+?)<\/a/;
@@ -1157,12 +1309,10 @@ async function getTextData(id) {
         let outputDate;
 
         /* GINOO75 MODE*/
-        if(ginoo75Mode)
-            outputDate=date.split(' ')[0];
+        if(ginoo75Mode) outputDate=date.split(' ')[0];
         /* END OF GINOO75 MODE*/
 
-        else
-            outputDate=timeSince(date);
+        else outputDate=timeSince(date);
 
         if(showPb) {
             document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername)+"'s best:";//'Pb:';
@@ -1182,8 +1332,6 @@ async function getTextData(id) {
         pbPace=pb_WPM;
         pickPace();
 
-
-
         // if text has already been completed, count total times typed
         const parser = new DOMParser();
         const doc = parser.parseFromString(responseHTML, "text/html");
@@ -1195,40 +1343,32 @@ async function getTextData(id) {
         if(displayCountEl) displayCountEl.innerText=rowCount;
     }
 }
-function timeSince(dateTimeString) {
-    const inputDate = new Date(dateTimeString + ' GMT+0000');
-    const currentDate = new Date();
-    const differenceInMs = currentDate - inputDate;
+function backgroundImportTyperacerData(username) {
+    const importUrl = `https://www.typeracerdata.com/import?username=${username}`;
 
-    const differenceInMinutes = Math.round(differenceInMs / 60000);
-    if (differenceInMinutes <= 59) {
-        return `${differenceInMinutes} minute${differenceInMinutes > 1 ? 's' : ''} ago`;
-    }
-    const differenceInHours = Math.round(differenceInMinutes / 60);
-    if (differenceInHours <= 23) {
-        return `${differenceInHours} hour${differenceInHours > 1 ? 's' : ''} ago`;
-    }
-    const differenceInDays = Math.round(differenceInHours / 24);
-    if (differenceInDays <= 30) {
-        return `${differenceInDays} day${differenceInDays > 1 ? 's' : ''} ago`;
-    }
-    const differenceInMonths = Math.round(differenceInDays / 30);
-    if (differenceInMonths <= 11) {
-        return `${differenceInMonths} month${differenceInMonths > 1 ? 's' : ''} ago`;
-    }
-    const differenceInYears = Math.round(differenceInMonths / 12);
-    return `${differenceInYears} year${differenceInYears > 1 ? 's' : ''} ago`;
+    GM_xmlhttpRequest({
+        method: "GET",
+        url: importUrl,
+        onload: function(response) {
+            log('[bgImportTRData] successfully added '+username+' to the typeracerdata import queue','#D3D3D3');
+        },
+        onerror: function(response) {
+            log('[bgImportTRData] error when adding '+username+' to the typeracerdata import queue: '+response.statusText,'#D3D3D3');
+        }
+    });
 }
 
 
+/*CREATE AND UPDATE CUSTOM HTML*/
+let displayHTML = `
+<table id='displayTable'>
+  <tr>
 
-// Custom HTML
-let displayHTML = `<table id='displayTable'>
-<tr>
     <!-- Block 1 (ID) -->
     <td id='blockId' style='vertical-align: top; padding-left: 25px;'>
       <div>
-        <span style='font-weight:bold;'>Text ID:</span><br>
+        <span style='font-weight:bold;'>Text ID:</span>
+        <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayId'>loading...</span>
       </div>
@@ -1237,18 +1377,22 @@ let displayHTML = `<table id='displayTable'>
     <!-- Block 2 (Source) -->
     <td id='blockSource' style='vertical-align: top; padding-left: 25px; max-width: 180px; white-space: normal; overflow-wrap: break-word;'>
       <div>
-        <span style='font-weight:bold;'>Source:</span><br>
+        <span style='font-weight:bold;'>Source:</span>
+        <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
-        <span id='displaySource1'>loading...</span><br>
-        <span id='displaySource2'>loading...</span><br>
+        <span id='displaySource1'>loading...</span>
+        <br>
+        <span id='displaySource2'>loading...</span>
+        <br>
         <span id='displaySource3'>loading...</span>
       </div>
     </td>
 
-    <!-- Block 3 (Default) -->
+    <!-- Block 3 (Default pace/TBA) -->
     <td id='blockDefault' style='vertical-align: top; padding-left: 25px; max-width: 130px; white-space: normal; overflow-wrap: break-word;'>
       <div>
-        <span id='defaultSpan' style='font-weight:bold;'>Minimum pace:</span><br>
+        <span id='defaultSpan' style='font-weight:bold;'>Minimum pace:</span>
+        <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayDefault'>`+targetPace+` WPM</span>
@@ -1258,10 +1402,14 @@ let displayHTML = `<table id='displayTable'>
     <!-- Block 4 (PB & related) -->
     <td id='blockPb' style='vertical-align: top; padding-left: 25px; max-width: 180px; white-space: normal; overflow-wrap: break-word;'>
       <div>
-        <button class='import-button' id='queueButton' title='Import your latest races to Typeracerdata'>\u{1F845}</button><span id='displayPb1' style='font-weight:bold;'>Loading...</span><br>
+        <button class='import-button' id='queueButton' title='Import your latest races to Typeracerdata'>\u{1F845}</button>
+        <span id='displayPb1' style='font-weight:bold;'>Loading...</span>
+        <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
-        <span id='displayPb2'></span><br>
-        <span id='displayLagged' style='display:none;'>Lag details...</span><br id='displayLaggedBr' style='display:none;'>
+        <span id='displayPb2'></span>
+        <br>
+        <span id='displayLagged' style='display:none;'>Lag details...</span>
+        <br id='displayLaggedBr' style='display:none;'>
         <span id='displayDate' style='display:none;'>loading...\n</span>
       </div>
     </td>
@@ -1269,7 +1417,8 @@ let displayHTML = `<table id='displayTable'>
     <!-- Block 5 (Count) - only shown if requested -->
     <td id='blockCount' style='vertical-align: top; display:none; padding-left: 25px;'>
       <div>
-        <span style='font-weight:bold;'>Times typed:</span><br>
+        <span style='font-weight:bold;'>Times typed:</span>
+        <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayCount'>loading...</span>
       </div>
@@ -1278,46 +1427,33 @@ let displayHTML = `<table id='displayTable'>
     <!-- Block 6 (Rank) -->
     <td id='blockRank' style='vertical-align: top; padding-left: 25px; max-width: 130; white-space: normal; overflow-wrap: break-word;'>
       <div>
-        <span id='displayRank1' style='font-weight:bold;'>#`+targetRank+`:</span><br>
+        <span id='displayRank1' style='font-weight:bold;'>#`+targetRank+`:</span>
+        <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
-        <span id='displayRank3'>loading...</span><br>
+        <span id='displayRank3'>loading...</span>
+        <br>
         <span id='displayRank2'>loading...</span>
       </div>
     </td>
 
-    <!-- Block 7 (Final/Recap) -->
+    <!-- Block 7 (Recap) -->
     <td id='blockFinal' style='vertical-align: top; font-weight:bold; padding-left: 25px;'>
-      <div>
-        Pace to beat:<br>
+      <div> Pace to beat: <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayPace'>loading...</span>
       </div>
     </td>
   </tr>
 
+  <!--Alternative approach: show Source as a line at the bottom-->
+  <!--<tr><td colspan='7'><div style="height:7px;font-size:1px;">&nbsp;</div></td></tr><tr id='blockSource'><td style='padding-left: 25px;'><span style='font-weight:bold;'>Source: </span></td><td colspan='6' style='padding-left: 25px;'><div ><div><span id='displaySource1'>loading...</span><span id='displaySource2'>loading...</span><span id='displaySource3'>loading...</span></div></div></td></tr>-->
 
-  <!--<tr>
-  <td colspan='7'>
-  <div style="height:7px;font-size:1px;">&nbsp;</div>
-  </td>
+  <tr>
+    <td>
+      <span class='heart-icon' title='Pacemaker by poem' style='cursor:pointer;' onclick="window.open('https://github.com/PoemOnTyperacer/tampermonkey','_blank')">\u{1F493}</span>
+    </td>
   </tr>
-  <tr id='blockSource'>
-  <td style='padding-left: 25px;'>
-  <span style='font-weight:bold;'>Source: </span>
-  </td>
-  <td colspan='6' style='padding-left: 25px;'>
-  <div >
-      <div>
-        <span id='displaySource1'>loading...</span>
-        <span id='displaySource2'>loading...</span>
-        <span id='displaySource3'>loading...</span>
-      </div>
-  </div>
-  </td>
-  </tr>-->
-
-<tr><td><span class='heart-icon' title='Pacemaker by poem' style='cursor:pointer;' onclick="window.open('https://github.com/PoemOnTyperacer/tampermonkey','_blank')">\u{1F493}</span></td></tr>
-  </table>
+</table>
 `;
 
 function makeDisplay() {
@@ -1355,14 +1491,12 @@ function makeDisplay() {
     // Trdata queue button
     let queueButton = document.querySelector('#queueButton');
     queueButton.addEventListener("click", function() {
-        if(!isGuest)
-            backgroundImportTyperacerData(username);
+        if(!isGuest) backgroundImportTyperacerData(username);
         queueButton.style.opacity='10%';
         clearTimeout(GUITimeout2);
         GUITimeout2 = setTimeout(function() {
             queueButton=document.getElementById("queueButton");
-            if(queueButton==null)
-                return;
+            if(queueButton==null) return;
             queueButton.style.opacity='100%';
         },1500);
     }, true);
@@ -1377,79 +1511,61 @@ function makeDisplay() {
     if(useTb&&text_best_average!=null&&tba_username!=null) {
         document.querySelector('#displayDefault').innerText=text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
         let tempUsername=targetUsername;
-        if(tempUsername=='')
-            tempUsername=username;
+        if(tempUsername=='') tempUsername=username;
         document.querySelector('#defaultSpan').innerText=capitalizeFirstLetter(tempUsername)+"'s TBA:";//'TBA:';
     }
-if (!showId) {
-  document.querySelector('#blockId').remove();
-}
-if (!showSource) {
-  document.querySelector('#blockSource').remove();
-}
-if (!showDefault) {
-  document.querySelector('#blockDefault').remove();
-}
+    if (!showId) {
+        document.querySelector('#blockId').remove();
+    }
+    if (!showSource) {
+        document.querySelector('#blockSource').remove();
+    }
+    if (!showDefault) {
+        document.querySelector('#blockDefault').remove();
+    }
     if (!showPb) {
         document.querySelector('#blockPb').remove();
     }
     else {
-        // if (!showDate) {
-        //     document.querySelector('#displayDate').style.display = 'none';
-        // }
-        // else {
-        //     document.querySelector('#displayDate').style.display = 'inline';
-        // }
-
         if (!showCount) {
             document.querySelector('#blockCount').remove();
         } else {
             document.querySelector('#blockCount').style.display = '';
         }
     }
-if (!showRank) {
-  document.querySelector('#blockRank').remove();
-}
-if (!showFinal) {
-  document.querySelector('#blockFinal').remove();
-}
-// If all are removed, remove the table
-if (!showId && !showSource && !showDefault && !showPb && !showRank && !showFinal) {
-  document.querySelector('#pCaretDisplay').remove();
-    log('No elements selected, removing table');
-}
-    // let firstBlock = document.querySelector('#pCaretDisplay tr td:first-child');
-    // firstBlock.style.borderLeft = '0px';
-    // firstBlock.style.paddingLeft = '0px';
+    if (!showRank) {
+        document.querySelector('#blockRank').remove();
+    }
+    if (!showFinal) {
+        document.querySelector('#blockFinal').remove();
+    }
+    // If all blocks are removed, remove the table
+    if (!showId && !showSource && !showDefault && !showPb && !showRank && !showFinal) {
+        document.querySelector('#pCaretDisplay').remove();
+        log('No elements selected, removing table');
+    }
 }
 
 function displayResult(lagged_speed) {
+    // CharlieOG mode? Question mark?
     /*log('[displayResult] adding '+username+' to the typeracerdata import queue','#D3D3D3');
     backgroundImportTyperacerData(username);*/
-
-    //"times typed" simple increment
-    /*log('[displayResult] displaying count +1','#D3D3D3');
-    let displayCount= document.querySelector('#displayCount');
-    let displayCountContent=parseInt(displayCount.innerText);
-    displayCount.innerHTML='&rarr; '+(displayCountContent+1);*/
 
     log('[displayResult] displaying lagged result = '+lagged_speed,'#D3D3D3');
     let displayLagged=document.querySelector('#displayLagged');
     let displayLaggedBr=document.querySelector('#displayLaggedBr');
     let displayPb1 = document.querySelector('#displayPb1');
     let displayPb2 = document.querySelector('#displayPb2');
-    if(!displayLagged)
-        return;
+    if(!displayLagged) return;
     if(pbPace=='none') {
-        if(isGuest)
-            return;
+        if(isGuest) return;
         log('[displayResult] first known quote completion. New pb = lagged = '+lagged_speed+'; username='+capitalizeFirstLetter(username),'#D3D3D3');
         displayPb1.innerHTML=capitalizeFirstLetter(username)+"'s best:";
         displayPb2.innerHTML='&rarr; '+lagged_speed.toFixed(DECIMAL_PLACES)+' WPM';
     }
     else {
         log('[displayResult] new quote completion. Previous pb = '+pbPace+'; lagged = '+lagged_speed,'#D3D3D3');
-        let output=''; //'&rarr; '+lagged_speed.toFixed(DECIMAL_PLACES)+' WPM';
+        let output='';
         if(lagged_speed>pbPace) {
             displayLagged.style.display='';
             displayLaggedBr.style.display='';
@@ -1459,24 +1575,3 @@ function displayResult(lagged_speed) {
         displayLagged.innerHTML=' '+output;
     }
 }
-
-function backgroundImportTyperacerData(username) {
-    const importUrl = `https://www.typeracerdata.com/import?username=${username}`;
-
-    GM_xmlhttpRequest({
-        method: "GET",
-        url: importUrl,
-        onload: function(response) {
-            log('[bgImportTRData] successfully added '+username+' to the typeracerdata import queue','#D3D3D3');
-        },
-        onerror: function(response) {
-            log('[bgImportTRData] error when adding '+username+' to the typeracerdata import queue: '+response.statusText,'#D3D3D3');
-        }
-    });
-}
-
-// Main
-addConfig();
-setInterval(clock, GUI_INTERVAL);
-createPCaret();
-endpoints();
