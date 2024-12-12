@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.24
+// @version      1.25
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -269,7 +269,7 @@ function config() {
             + "<br><br><br><br></div><center><b>Show:</b>"
             + "<br><br><input id='showId' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Text ID</span>"
             + "<br><br><input id='showSource' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Source</span>"
-            + "<br><br><input id='showDefault' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Minimum pace/Texts best average</span>"
+            + "<br><br><input id='showDefault' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Minimum pace/Text best average</span>"
             + "<br><br><input id='showPb' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best</span>"
             + "<br><br><input id='showDate' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Personal best date</span>"
             + "<br><br><input id='showCount' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'><span style='float:left;margin-left:1em;'>Total times completed</span>"
@@ -301,7 +301,7 @@ function config() {
             }
         }
         if(text_best_average!=null&&tba_username!=null) {
-            document.getElementById('useTbDisplay').innerText='Use text bests average as minimum pace: '+text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
+            document.getElementById('useTbDisplay').innerText='Use text best average as minimum pace: '+text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
             let useTbSpan=document.getElementById('useTbSpan');
             useTbSpan.style.opacity='1';
             useTbSpan.style.pointerEvents='';
@@ -710,34 +710,19 @@ function createPCaret() {
     pCaret.style.visibility='hidden';
     pCaret.id='pCaret';
     document.body.insertAdjacentHTML("beforeend",`<style>
-.my-wrapper {
-  border: 1px solid #ccc;
-  padding: 10px;
-  display: inline-block;
+#displayPb1 {
+margin-left: 1.5em;
 }
-
-.my-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.my-table td {
-  border: 1px solid #ccc;
-  padding: 4px;
-}
-
-.bold-label {
-  font-weight: bold;
-}
-
 .import-button {
-border-radius: 10%;
+position:absolute;
+border-radius: 15%;
+height: 2.2em;
+width: 2.2em;
 background-color: transparent;
-border: 3px solid;
+border: 2px solid;
 font-size: 9px;
 text-align: center;
 cursor: pointer;
-margin-right: 10px;
 font-family: Lato, sans-serif;
 }
 .import-button:hover {
@@ -759,7 +744,7 @@ font-family: Lato, sans-serif;
 }
 #pCaretDisplay {
 background-color: transparent/*rgba(0,0,0,0.7)*/!important;
-padding:10px;
+padding:5px;
 border-radius:5px;
 margin-bottom:10px;
 border: 3px solid transparent;
@@ -774,8 +759,8 @@ border: 3px solid transparent;
   }
   .heart-icon {
     position: absolute;
-    bottom: 5px;
-    right: 5px;
+    top: 5px;
+    left: 5px;
     opacity: 0.6;
     font-size: 16px;
     cursor: pointer;
@@ -1006,7 +991,7 @@ function getTextBestAverage(user) {
             if(update_tb_line) {
                 let useTbDisplay=document.getElementById('useTbDisplay');
                 if(useTbDisplay)
-                    useTbDisplay.innerText='Use text bests average as minimum pace: unknown';
+                    useTbDisplay.innerText='Use text best average as minimum pace: unknown';
                 update_tb_line=false;
             }
             return;
@@ -1016,7 +1001,7 @@ function getTextBestAverage(user) {
         if(update_tb_line) {
             let useTbDisplay=document.getElementById('useTbDisplay');
             if(useTbDisplay)
-                useTbDisplay.innerText='Use text bests average as minimum pace: '+text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
+                useTbDisplay.innerText='Use text best average as minimum pace: '+text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
             update_tb_line=false;
         }
     }
@@ -1062,11 +1047,12 @@ async function getTextData(id) {
         log('[getdata] rank='+rank+'; username='+username+'; WPM='+top_WPM+'; title='+sourceTitle+'; type='+sourceType+'; author='+sourceAuthor,'#D3D3D3');
         if(showSource) {
             document.querySelector('#displaySource1').innerText=sourceTitle;
-            document.querySelector('#displaySource2').innerText=prependEmoji(sourceType);
+            document.querySelector('#displaySource2').innerText=`(${prependEmoji(sourceType)}),`;
             document.querySelector('#displaySource3').innerText=`by ${sourceAuthor}`;
         }
         if(showRank){
-            document.querySelector('#displayRank1').innerText='#'+rank+' ('+username+'):';
+            document.querySelector('#displayRank1').innerText='#'+rank+':';
+            document.querySelector('#displayRank3').innerText=username;
             document.querySelector('#displayRank2').innerText=top_WPM.toFixed(DECIMAL_PLACES)+' WPM';
         }
         rankPace=top_WPM;
@@ -1093,7 +1079,9 @@ async function getTextData(id) {
         if(isGuest) {
             log('[getdata] no target user selected, not logged in = no PB data available','#ff0000');
             if(showPb) {
-                document.querySelector('#displayPb1').innerText='Personal best:';
+                let displayPb1El=document.querySelector('#displayPb1');
+                displayPb1El.innerText='Personal best:';
+                displayPb1El.style.marginLeft='0px';
                 document.querySelector('#displayPb2').innerText='No user selected!';
                 document.getElementById('queueButton').remove();
                 let blockCountEl=document.querySelector('#blockCount');
@@ -1177,14 +1165,18 @@ async function getTextData(id) {
             outputDate=timeSince(date);
 
         if(showPb) {
-            document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername)+"'s best:";
+            document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername)+"'s best:";//'Pb:';
             document.querySelector('#displayPb2').innerText=pb_WPM.toFixed(DECIMAL_PLACES)+' WPM';
             if(showDate) {
                 displayDate.innerText=` ${outputDate}`;
             }
-            if(showCount) {
+            if(showCount&&displayCount) {
                 let outputCount = 0;
                 displayCount.innerText=outputCount;
+            }
+            else {
+                let blockCountEl = document.querySelector('#blockCount');
+                if(blockCountEl) blockCountEl.style.display = 'none';
             }
         }
         pbPace=pb_WPM;
@@ -1231,19 +1223,22 @@ function timeSince(dateTimeString) {
 
 
 // Custom HTML
-let displayHTML = `<table id='displayTable'><tr>
+let displayHTML = `<table id='displayTable'>
+<tr>
     <!-- Block 1 (ID) -->
-    <td id='blockId' style='vertical-align: top; padding: 5px;'>
+    <td id='blockId' style='vertical-align: top; padding-left: 25px;'>
       <div>
-        <span>Text ID:</span><br><br>
+        <span style='font-weight:bold;'>Text ID:</span><br>
+        <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayId'>loading...</span>
       </div>
     </td>
 
     <!-- Block 2 (Source) -->
-    <td id='blockSource' style='vertical-align: top; padding: 5px; border-left: 3px solid;'>
+    <td id='blockSource' style='vertical-align: top; padding-left: 25px; max-width: 180px; white-space: normal; overflow-wrap: break-word;'>
       <div>
-        <span>Source:</span><br><br>
+        <span style='font-weight:bold;'>Source:</span><br>
+        <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displaySource1'>loading...</span><br>
         <span id='displaySource2'>loading...</span><br>
         <span id='displaySource3'>loading...</span>
@@ -1251,49 +1246,77 @@ let displayHTML = `<table id='displayTable'><tr>
     </td>
 
     <!-- Block 3 (Default) -->
-    <td id='blockDefault' style='vertical-align: top; padding: 5px; border-left: 3px solid;'>
+    <td id='blockDefault' style='vertical-align: top; padding-left: 25px; max-width: 130px; white-space: normal; overflow-wrap: break-word;'>
       <div>
-        <span id='defaultSpan'>Minimum pace:</span><br><br>
+        <span id='defaultSpan' style='font-weight:bold;'>Minimum pace:</span><br>
+        <div style="height:7px;font-size:1px;">&nbsp;</div>
+        <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayDefault'>`+targetPace+` WPM</span>
       </div>
     </td>
 
     <!-- Block 4 (PB & related) -->
-    <td id='blockPb' style='vertical-align: top; padding: 5px; border-left: 3px solid;'>
+    <td id='blockPb' style='vertical-align: top; padding-left: 25px; max-width: 180px; white-space: normal; overflow-wrap: break-word;'>
       <div>
-        <button class='import-button' id='queueButton' title='Import your latest races to Typeracerdata'>\u{1F845}</button><span id='displayPb1'>Loading...</span><br><br>
-
+        <button class='import-button' id='queueButton' title='Import your latest races to Typeracerdata'>\u{1F845}</button><span id='displayPb1' style='font-weight:bold;'>Loading...</span><br>
+        <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayPb2'></span><br>
-        <span id='displayLagged' style='display:none;'>Lag details...</span><br>
-        <span id='displayDate' style='display:none;'>loading...</span>
+        <span id='displayLagged' style='display:none;'>Lag details...</span><br id='displayLaggedBr' style='display:none;'>
+        <span id='displayDate' style='display:none;'>loading...\n</span>
       </div>
     </td>
 
     <!-- Block 5 (Count) - only shown if requested -->
-    <td id='blockCount' style='vertical-align: top; padding: 5px; border-left: 3px solid; display:none;'>
+    <td id='blockCount' style='vertical-align: top; display:none; padding-left: 25px;'>
       <div>
-        <span>Times typed:</span><br><br>
+        <span style='font-weight:bold;'>Times typed:</span><br>
+        <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayCount'>loading...</span>
       </div>
     </td>
 
     <!-- Block 6 (Rank) -->
-    <td id='blockRank' style='vertical-align: top; padding: 5px; border-left: 3px solid;'>
+    <td id='blockRank' style='vertical-align: top; padding-left: 25px; max-width: 130; white-space: normal; overflow-wrap: break-word;'>
       <div>
-        <span id='displayRank1'>#`+targetRank+`:</span><br><br>
+        <span id='displayRank1' style='font-weight:bold;'>#`+targetRank+`:</span><br>
+        <div style="height:7px;font-size:1px;">&nbsp;</div>
+        <span id='displayRank3'>loading...</span><br>
         <span id='displayRank2'>loading...</span>
       </div>
     </td>
 
     <!-- Block 7 (Final/Recap) -->
-    <td id='blockFinal' style='vertical-align: top; padding: 5px; border-left: 3px solid; font-weight:bold;'>
+    <td id='blockFinal' style='vertical-align: top; font-weight:bold; padding-left: 25px;'>
       <div>
-        Pace to beat:<br><br>
+        Pace to beat:<br>
+        <div style="height:7px;font-size:1px;">&nbsp;</div>
         <span id='displayPace'>loading...</span>
       </div>
     </td>
   </tr>
-  <tr><td><span class='heart-icon' title='Pacemaker by poem' style='cursor:pointer;' onclick="window.open('https://github.com/PoemOnTyperacer/tampermonkey','_blank')">\u{1F493}</span></td></tr>
+
+
+  <!--<tr>
+  <td colspan='7'>
+  <div style="height:7px;font-size:1px;">&nbsp;</div>
+  </td>
+  </tr>
+  <tr id='blockSource'>
+  <td style='padding-left: 25px;'>
+  <span style='font-weight:bold;'>Source: </span>
+  </td>
+  <td colspan='6' style='padding-left: 25px;'>
+  <div >
+      <div>
+        <span id='displaySource1'>loading...</span>
+        <span id='displaySource2'>loading...</span>
+        <span id='displaySource3'>loading...</span>
+      </div>
+  </div>
+  </td>
+  </tr>-->
+
+<tr><td><span class='heart-icon' title='Pacemaker by poem' style='cursor:pointer;' onclick="window.open('https://github.com/PoemOnTyperacer/tampermonkey','_blank')">\u{1F493}</span></td></tr>
   </table>
 `;
 
@@ -1303,6 +1326,10 @@ function makeDisplay() {
     displayDiv.id='pCaretDisplay';
     displayDiv.innerHTML = displayHTML;
     section.appendChild(displayDiv);
+    let timerTd=document.querySelector('table.podContainer > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(1) > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(1) > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2)');
+    timerTd.parentNode.style.position='relative';
+    timerTd.style.position='absolute';
+    timerTd.style.left='800px';
     log('[makeDisplay] added display div','#D3D3D3');
 
     // Find background color
@@ -1342,14 +1369,17 @@ function makeDisplay() {
 
     // Fill display and remove sections according to settings
     let blockCountEl = document.querySelector('#displayCount');
-    if(blockCountEl&&(!showCount||isGuest)) blockCountEl.remove();
+    if(blockCountEl&&(!showCount||(targetUsername===''&&isGuest))) {
+        blockCountEl.remove();
+        log('removing block count; showCount='+showCount+'; targetUsername='+targetUsername+'; isGuest='+isGuest);
+    }
     document.querySelector('#displayDefault').innerText=targetPace+' WPM';
     if(useTb&&text_best_average!=null&&tba_username!=null) {
         document.querySelector('#displayDefault').innerText=text_best_average.toFixed(DECIMAL_PLACES)+' WPM';
         let tempUsername=targetUsername;
         if(tempUsername=='')
             tempUsername=username;
-        document.querySelector('#defaultSpan').innerText=capitalizeFirstLetter(tempUsername)+"'s text bests average:";
+        document.querySelector('#defaultSpan').innerText=capitalizeFirstLetter(tempUsername)+"'s TBA:";//'TBA:';
     }
 if (!showId) {
   document.querySelector('#blockId').remove();
@@ -1388,7 +1418,9 @@ if (!showId && !showSource && !showDefault && !showPb && !showRank && !showFinal
   document.querySelector('#pCaretDisplay').remove();
     log('No elements selected, removing table');
 }
-    document.querySelector('#pCaretDisplay tr td:first-child').style.borderLeft = '0px';
+    // let firstBlock = document.querySelector('#pCaretDisplay tr td:first-child');
+    // firstBlock.style.borderLeft = '0px';
+    // firstBlock.style.paddingLeft = '0px';
 }
 
 function displayResult(lagged_speed) {
@@ -1403,6 +1435,7 @@ function displayResult(lagged_speed) {
 
     log('[displayResult] displaying lagged result = '+lagged_speed,'#D3D3D3');
     let displayLagged=document.querySelector('#displayLagged');
+    let displayLaggedBr=document.querySelector('#displayLaggedBr');
     let displayPb1 = document.querySelector('#displayPb1');
     let displayPb2 = document.querySelector('#displayPb2');
     if(!displayLagged)
@@ -1419,10 +1452,11 @@ function displayResult(lagged_speed) {
         let output=''; //'&rarr; '+lagged_speed.toFixed(DECIMAL_PLACES)+' WPM';
         if(lagged_speed>pbPace) {
             displayLagged.style.display='';
+            displayLaggedBr.style.display='';
             output+="<span style='color: green'>+ "+(lagged_speed-pbPace).toFixed(DECIMAL_PLACES)+'</span>';
             document.getElementById('pCaretDisplay').style.borderLeft='3px solid green';
         }
-        displayLagged.innerHTML=output;
+        displayLagged.innerHTML=' '+output;
     }
 }
 
