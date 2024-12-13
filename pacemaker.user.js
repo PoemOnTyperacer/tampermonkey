@@ -189,6 +189,9 @@ function decodeHtml(html) {
     txt.innerHTML = html;
     return txt.value;
 }
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
 
 
 /*SETTINGS MENU, LOAD/SAVE DATA*/
@@ -1485,8 +1488,8 @@ async function getTextData(id) {
             }
 
             displaySelfRankBr.style.display='';
-            outputStr+=` #${rank}`
-            if(showTotalRanked) outputStr+=` / ${totalRanked}`
+            outputStr+=` #${numberWithCommas(rank)}`
+            if(showTotalRanked) outputStr+=` / ${numberWithCommas(totalRanked)}`
             displaySelfRank.innerText=outputStr;
             displaySelfRank.setAttribute('data-text', outputStr);
         } else {
