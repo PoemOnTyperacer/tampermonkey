@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.26
+// @version      1.27
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -37,7 +37,7 @@ if(universeMatch!=null) {
 }
 
 // User settings
-let targetPace,useTb,targetRank,targetUsername,caretColor,showPb,showRank,showCount,showCaret,usePb,useRank,showId,showSource,showDefault,showFinal,showDate,ginoo75Mode;
+let targetPace,useTb,targetRank,targetUsername,caretColor,showPb,showRank,showCount,showCaret,usePb,useRank,showId,showSource,showDefault,showFinal,showDate,showSelfRank,ginoo75Mode;
 function setDefaultSettings() {
     targetPace=100;
     useTb=true;
@@ -49,6 +49,7 @@ function setDefaultSettings() {
     showDefault=true;
     showPb=true;
     showDate=true;
+    showSelfRank=true;
     showCount=true;
     showRank=true;
     showCaret=true;
@@ -110,7 +111,7 @@ function log(msg, color='#7DF9FF') {
     if(DEBUG) console.log('%c [Pacemaker] '+msg, 'color: '+color);
 }
 function logSettings() {
-    log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showSource='+showSource+'; debug='+DEBUG+'; ginoo75 mode='+ginoo75Mode+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showCount='+showCount+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
+    log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showSource='+showSource+'; debug='+DEBUG+'; ginoo75 mode='+ginoo75Mode+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showSelfRank='+showSelfRank+'; showCount='+showCount+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
 }
 function sleep(x) { // Wait for x ms
     return new Promise(resolve => setTimeout(resolve, x));
@@ -210,6 +211,12 @@ function load_settings(refreshTb=true) {
     showDefault=!!+GM_getValue("showDefault");
     showPb=!!+GM_getValue("showPb");
     showDate=!!+GM_getValue("showDate");
+    showSelfRank = GM_getValue("showSelfRank");
+    if (showSelfRank === undefined) {
+        showSelfRank = true;
+    } else {
+        showSelfRank = !!+showSelfRank;
+    }
     showCount=!!+GM_getValue("showCount");
     showRank=!!+GM_getValue("showRank");
     showFinal=!!+GM_getValue("showFinal");
@@ -250,6 +257,7 @@ function config() {
             showDefault=document.getElementById("showDefault").checked;
             showPb=document.getElementById("showPb").checked;
             showDate=document.getElementById("showDate").checked;
+            showSelfRank=document.getElementById("showSelfRank").checked;
             showCount=document.getElementById("showCount").checked;
             showRank=document.getElementById("showRank").checked;
             showFinal=document.getElementById("showFinal").checked;
@@ -269,6 +277,7 @@ function config() {
             GM_setValue("showDefault", showDefault ? "1" : "0");
             GM_setValue("showPb", showPb ? "1" : "0");
             GM_setValue("showDate", showDate ? "1" : "0");
+            GM_setValue("showSelfRank", showSelfRank ? "1" : "0");
             GM_setValue("showCount", showCount ? "1" : "0");
             GM_setValue("showRank", showRank ? "1" : "0");
             GM_setValue("showFinal", showFinal ? "1" : "0");
@@ -365,6 +374,10 @@ function config() {
       <br>
       <input id='showDate' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
       <span style='float:left;margin-left:1em;'>Personal best date</span>
+      <br>
+      <br>
+      <input id='showSelfRank' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Personal best rank</span>
       <br>
       <br>
       <input id='showCount' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
@@ -466,6 +479,7 @@ function config() {
         document.getElementById("showDefault").checked = showDefault;
         document.getElementById("showPb").checked = showPb;
         document.getElementById("showDate").checked = showDate;
+        document.getElementById("showSelfRank").checked = showSelfRank;
         document.getElementById("showCount").checked = showCount;
         document.getElementById("showRank").checked = showRank;
         document.getElementById("showFinal").checked = showFinal;
@@ -830,6 +844,57 @@ async function endpoints() {
 function addStyles() {
     document.body.insertAdjacentHTML("beforeend",
 `<style>
+.glint-text {
+  position: relative;
+  display: inline-block;
+}
+
+.glint-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+
+  /* Align text exactly with the original */
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  font-family: inherit; /* match all text properties if needed */
+
+  color: transparent;
+
+  /* The shining gradient overlay, clipped by text */
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text; /* for Safari */
+
+  /* Blend mode ensures the highlight "mixes" with underlying text colors */
+  mix-blend-mode: screen;
+
+  animation: shine 2s linear infinite;
+}
+
+/* Animation moves the gradient across the text */
+@keyframes shine {
+  0% {
+    background-position: 0% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+
+
 #displayPb1 {
 	margin-left: 1.5em;
 }
@@ -1228,7 +1293,7 @@ async function getTextData(id) {
         pickPace();
     }
 
-    // account PB data
+    // determine target username, update UI if necessary, end function if necessary
     let tempUsername;
     if(targetUsername=='') {
         if(isGuest) {
@@ -1342,6 +1407,59 @@ async function getTextData(id) {
         let displayCountEl = document.querySelector('#displayCount');
         if(displayCountEl) displayCountEl.innerText=rowCount;
     }
+
+    // self rank data
+    if(!showSelfRank) return;
+    let rank_url = 'https://typeracerdata.com/text?universe='+universe+'&id='+id+'&highlight='+tempUsername;
+    log('[getdata] rank_url = '+text_history_url);
+    GM_xmlhttpRequest ( {
+        method: 'GET',
+        url: rank_url,
+        onload: function (response) {
+            let responseHTML=response.responseText;
+			rankProcess(responseHTML);
+        }
+    });
+    function rankProcess(responseHTML) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(responseHTML, "text/html");
+        const targetRow = doc.querySelector('tr[style*="background-color: #ff0"]');
+        if (targetRow) {
+            const rankStr = targetRow.querySelector('tr[style*="background-color: #ff0"] > td:first-child').innerText;
+            const rank = parseInt(rankStr);
+            log(`[getdata] Found self rank: #${rank}`);
+            let displaySelfRank = document.getElementById('displaySelfRank');
+            if(!displaySelfRank) return;
+            let displaySelfRankBr = document.getElementById('displaySelfRankBr');
+            displaySelfRank.style.display='';
+            let outputStr='';
+            let outputColor='';
+            if(rank===1) {
+                outputStr=`\u{1F947}`;
+                outputColor='#FFD700'
+            }
+            else if(rank===2) {
+                outputStr=`\u{1F948}`;
+                outputColor='#C0C0C0';
+            }
+            else if(rank<=10) {
+                if(rank===3) outputStr = `\u{1F949}`;
+                else outputStr = `\u{1F3C5}`;
+                outputColor='#CD7F32';
+            }
+            if(outputColor!='') {
+                displaySelfRank.classList.add('glint-text');
+                displaySelfRank.style.color=outputColor;
+            }
+
+            displaySelfRankBr.style.display='';
+            outputStr=outputStr+` #${rank}`
+            displaySelfRank.innerText=outputStr;
+            displaySelfRank.setAttribute('data-text', outputStr);
+        } else {
+            console.log("[getdata] No self rank found.",'#ff0000');
+        }
+    }
 }
 function backgroundImportTyperacerData(username) {
     const importUrl = `https://www.typeracerdata.com/import?username=${username}`;
@@ -1411,6 +1529,8 @@ let displayHTML = `
         <span id='displayLagged' style='display:none;'>Lag details...</span>
         <br id='displayLaggedBr' style='display:none;'>
         <span id='displayDate' style='display:none;'>loading...\n</span>
+        <br id='displaySelfRankBr' style='display:none;'>
+        <span id='displaySelfRank' style='display:none;'>loading...\n</span>
       </div>
     </td>
 
