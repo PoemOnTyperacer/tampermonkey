@@ -1393,7 +1393,14 @@ async function getTextData(id) {
 
         if(showPb) {
             document.querySelector('#displayPb1').innerText=capitalizeFirstLetter(tempUsername)+"'s best:";//'Pb:';
-            document.querySelector('#displayPb2').innerText=pb_WPM.toFixed(DECIMAL_PLACES)+' WPM';
+            let displayPb2El = document.querySelector('#displayPb2');
+            displayPb2El.innerText=pb_WPM.toFixed(DECIMAL_PLACES)+' WPM';
+            if(pb_WPM>=400) {
+                displayPb2El.style.color='#ff2ee0';
+            }
+            else if(pb_WPM>=300) {
+                displayPb2El.style.color='#ffc22a';
+            }
             if(showDate) {
                 displayDate.innerText=` ${outputDate}`;
             }
@@ -1560,13 +1567,13 @@ let displayHTML = `
         <span id='displayPb1' style='font-weight:bold;'>Loading...</span>
         <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
-        <span id='displayPb2'></span>
+        <span id='displayPb2' style='cursor: help;' title='Latest user PB currently imported into Typeracerdata'></span>
         <br>
         <span id='displayLagged' style='display:none;'>Lag details...</span>
         <br id='displayLaggedBr' style='display:none;'>
         <span id='displayDate' style='display:none;'>loading...\n</span>
         <br id='displaySelfRankBr' style='display:none;'>
-        <span id='displaySelfRank' style='display:none;'>loading...\n</span>
+        <span id='displaySelfRank' style='display:none; cursor: help;' title='Ranks from Typeracerdata.com may differ from those shown on TRStats or Typeracer top 10s'>loading...\n</span>
       </div>
     </td>
 
@@ -1576,7 +1583,7 @@ let displayHTML = `
         <span style='font-weight:bold;'>Times typed:</span>
         <br>
         <div style="height:7px;font-size:1px;">&nbsp;</div>
-        <span id='displayCount'>loading...</span>
+        <span id='displayCount' style='cursor: help;' title='Total races for this user and text currently imported into Typeracerdata'>loading...</span>
       </div>
     </td>
 
