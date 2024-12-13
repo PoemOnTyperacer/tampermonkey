@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TypeRacer Pacemaker
 // @namespace    http://tampermonkey.net/
-// @version      1.27
+// @version      1.28
 // @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/pacemaker.user.js
 // @description  Helps you set the pace on TypeRacer!
@@ -37,7 +37,7 @@ if(universeMatch!=null) {
 }
 
 // User settings
-let targetPace,useTb,targetRank,targetUsername,caretColor,showPb,showRank,showCount,showCaret,usePb,useRank,showId,showSource,showDefault,showFinal,showDate,showSelfRank,ginoo75Mode;
+let targetPace,useTb,targetRank,targetUsername,caretColor,showPb,showRank,showCount,showCaret,usePb,useRank,showId,showSource,showDefault,showFinal,showDate,showSelfRank,showTotalRanked,ginoo75Mode;
 function setDefaultSettings() {
     targetPace=100;
     useTb=true;
@@ -50,6 +50,7 @@ function setDefaultSettings() {
     showPb=true;
     showDate=true;
     showSelfRank=true;
+    showTotalRanked=false;
     showCount=true;
     showRank=true;
     showCaret=true;
@@ -111,7 +112,7 @@ function log(msg, color='#7DF9FF') {
     if(DEBUG) console.log('%c [Pacemaker] '+msg, 'color: '+color);
 }
 function logSettings() {
-    log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showSource='+showSource+'; debug='+DEBUG+'; ginoo75 mode='+ginoo75Mode+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showSelfRank='+showSelfRank+'; showCount='+showCount+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
+    log('[logSetting] targetPace='+targetPace+'; useTb='+useTb+'; targetUsername='+targetUsername+'; targetRank='+targetRank+'; caretColor='+caretColor+'; showId='+showId+'; showSource='+showSource+'; debug='+DEBUG+'; ginoo75 mode='+ginoo75Mode+'; showDefault='+showDefault+'; showPb='+showPb+'; showDate='+showDate+'; showSelfRank='+showSelfRank+'; showTotalRanked='+showTotalRanked+'; showCount='+showCount+'; showRank='+showRank+'; showFinal='+showFinal+'; showCaret='+showCaret+'; usePb='+usePb+'; useRank='+useRank,'#D3D3D3');
 }
 function sleep(x) { // Wait for x ms
     return new Promise(resolve => setTimeout(resolve, x));
@@ -217,6 +218,7 @@ function load_settings(refreshTb=true) {
     } else {
         showSelfRank = !!+showSelfRank;
     }
+    showTotalRanked=!!+GM_getValue("showTotalRanked");
     showCount=!!+GM_getValue("showCount");
     showRank=!!+GM_getValue("showRank");
     showFinal=!!+GM_getValue("showFinal");
@@ -258,6 +260,7 @@ function config() {
             showPb=document.getElementById("showPb").checked;
             showDate=document.getElementById("showDate").checked;
             showSelfRank=document.getElementById("showSelfRank").checked;
+            showTotalRanked=document.getElementById("showTotalRanked").checked;
             showCount=document.getElementById("showCount").checked;
             showRank=document.getElementById("showRank").checked;
             showFinal=document.getElementById("showFinal").checked;
@@ -278,6 +281,7 @@ function config() {
             GM_setValue("showPb", showPb ? "1" : "0");
             GM_setValue("showDate", showDate ? "1" : "0");
             GM_setValue("showSelfRank", showSelfRank ? "1" : "0");
+            GM_setValue("showTotalRanked", showTotalRanked ? "1" : "0");
             GM_setValue("showCount", showCount ? "1" : "0");
             GM_setValue("showRank", showRank ? "1" : "0");
             GM_setValue("showFinal", showFinal ? "1" : "0");
@@ -380,6 +384,10 @@ function config() {
       <span style='float:left;margin-left:1em;'>Personal best rank</span>
       <br>
       <br>
+      <input id='showTotalRanked' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
+      <span style='float:left;margin-left:1em;'>Total players ranked</span>
+      <br>
+      <br>
       <input id='showCount' type='checkbox' style='float: left; width:initial; padding: initial; margin: initial;'>
       <span style='float:left;margin-left:1em;'>Total times completed</span>
       <br>
@@ -480,6 +488,7 @@ function config() {
         document.getElementById("showPb").checked = showPb;
         document.getElementById("showDate").checked = showDate;
         document.getElementById("showSelfRank").checked = showSelfRank;
+        document.getElementById("showTotalRanked").checked = showTotalRanked;
         document.getElementById("showCount").checked = showCount;
         document.getElementById("showRank").checked = showRank;
         document.getElementById("showFinal").checked = showFinal;
@@ -1416,11 +1425,34 @@ async function getTextData(id) {
         method: 'GET',
         url: rank_url,
         onload: function (response) {
-            let responseHTML=response.responseText;
-			rankProcess(responseHTML);
+            let rankResponseHTML=response.responseText;
+            if(showTotalRanked) {
+                let total_ranked_url = 'https://typeracerdata.com/text?universe='+universe+'&id='+id+'&rank_start=1000000&rank_end=1000000';
+                log('[getdata] total_ranked_url = '+total_ranked_url);
+                GM_xmlhttpRequest ( {
+                    method: 'GET',
+                    url: total_ranked_url,
+                    onload: function (response2) {
+                        let totalRankedHTML=response2.responseText;
+                        rankProcess(rankResponseHTML,totalRankedHTML);
+                    }
+                });
+            }
+            else rankProcess(rankResponseHTML);
         }
     });
-    function rankProcess(responseHTML) {
+    function rankProcess(responseHTML,totalRankedHTML='') {
+        let totalRanked='';
+        if(showTotalRanked) {
+            const totalRankedParser = new DOMParser();
+            const totalRankedDoc = totalRankedParser.parseFromString(totalRankedHTML, "text/html");
+            const totalRankedTargetRow = totalRankedDoc.querySelector('td');
+            if(totalRankedTargetRow) {
+                totalRanked = parseInt(totalRankedTargetRow.innerText);
+                log(`[getdata] Found total ranked: #${totalRanked}`);
+            }
+        }
+
         const parser = new DOMParser();
         const doc = parser.parseFromString(responseHTML, "text/html");
         const targetRow = doc.querySelector('tr[style*="background-color: #ff0"]');
@@ -1453,7 +1485,8 @@ async function getTextData(id) {
             }
 
             displaySelfRankBr.style.display='';
-            outputStr=outputStr+` #${rank}`
+            outputStr+=` #${rank}`
+            if(showTotalRanked) outputStr+=` / ${totalRanked}`
             displaySelfRank.innerText=outputStr;
             displaySelfRank.setAttribute('data-text', outputStr);
         } else {
