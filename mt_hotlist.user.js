@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Monkeytype: Hotlist
 // @namespace    http://tampermonkey.net/
-// @version      0.4.4
+// @version      0.5.0
 // @description  Highlight keywords in monkeytype tests
 // @author       poem#3305
 // @match        https://monkeytype.com/*
@@ -18,6 +18,9 @@
     const LISTS_SEPARATOR = '|';
     const STORAGE_KEY = 'HotlistDataItemV3';
     const ENABLED_KEY = 'HotlistEnabled';
+    const COMMAND_ID = 'hotlistToggle';
+    const COMMAND_ID_ON = 'hotlistSetOn';
+    const COMMAND_ID_OFF = 'hotlistSetOff';
 
     let mainSet = new Set();
     let redSet = new Set();
@@ -164,7 +167,6 @@
       font-size: 0.8rem;
       opacity: 0.5;
     }
-    #hotlistAddInput { autocomplete: off; }
     .section.hotlist .hotlistAddRow .exactToggle.active {
       opacity: 1;
       background: var(--main-color);
@@ -217,6 +219,15 @@
     }
     @media (max-width: 700px) {
       .section.hotlist .hotlistColumns { grid-template-columns: 1fr; }
+    }
+
+    .suggestions.hotlist-managed .command:not(.hotlist-hover) {
+      color: var(--sub-color) !important;
+      background: transparent !important;
+    }
+    .suggestions.hotlist-managed .command.hotlist-hover {
+      color: var(--bg-color) !important;
+      background: var(--text-color) !important;
     }
   `);
 
@@ -585,6 +596,146 @@
         menuCreated = true;
     }
 
+    let inSubmenu = false;
+
+    function createCommandItem(id, icon, label) {
+        const div = document.createElement('div');
+        div.className = 'command';
+        div.dataset.commandId = id;
+        div.innerHTML = `<div class="icon"><i class="fas fa-fw ${icon}"></i></div><div>${label}</div>`;
+        return div;
+    }
+
+    function setupHoverManagement(suggestions) {
+        if (suggestions.dataset.hotlistBound) return;
+        suggestions.dataset.hotlistBound = '1';
+        suggestions.classList.add('hotlist-managed');
+
+        suggestions.addEventListener('mouseover', e => {
+            const cmd = e.target.closest('.command');
+            if (!cmd) return;
+            suggestions.querySelectorAll('.command').forEach(c => c.classList.remove('active', 'hotlist-hover'));
+            cmd.classList.add('hotlist-hover');
+        });
+
+        suggestions.addEventListener('mouseleave', () => {
+            suggestions.querySelectorAll('.command').forEach(c => c.classList.remove('active', 'hotlist-hover'));
+        });
+    }
+
+    function clearNativeActive(suggestions) {
+        suggestions.querySelectorAll('.command').forEach(c => c.classList.remove('active'));
+    }
+
+    function injectCommandlineItem(suggestions) {
+        const existing = suggestions.querySelector(`[data-command-id="${COMMAND_ID}"]`);
+        if (existing) return;
+
+        const commands = Array.from(suggestions.querySelectorAll('.command'));
+        if (commands.length < 7) return;
+
+        const item = createCommandItem(COMMAND_ID, 'fa-highlighter', 'Hotlist...');
+        item.dataset.index = '7';
+        item.addEventListener('click', e => {
+            e.stopPropagation();
+            showHotlistSubmenu(suggestions);
+        });
+
+        const refNode = commands[7] || null;
+        suggestions.insertBefore(item, refNode);
+
+        commands.slice(7).forEach((cmd, i) => {
+            cmd.dataset.index = String(i + 8);
+        });
+
+        setupHoverManagement(suggestions);
+        clearNativeActive(suggestions);
+    }
+
+    function updateSubmenuState(suggestions) {
+        const offItem = suggestions.querySelector(`[data-command-id="${COMMAND_ID_OFF}"]`);
+        const onItem = suggestions.querySelector(`[data-command-id="${COMMAND_ID_ON}"]`);
+        if (offItem) offItem.querySelector('.icon i').className = `fas fa-fw ${enabled ? '' : 'fa-check'}`;
+        if (onItem) onItem.querySelector('.icon i').className = `fas fa-fw ${enabled ? 'fa-check' : ''}`;
+    }
+
+    function showHotlistSubmenu(suggestions) {
+        const modal = suggestions.closest('.modal');
+        if (!modal) return;
+
+        inSubmenu = true;
+
+        const input = modal.querySelector('input.input');
+        if (input) {
+            input.placeholder = 'Hotlist...';
+            input.value = '';
+        }
+
+        suggestions.textContent = '';
+        delete suggestions.dataset.hotlistBound;
+        setupHoverManagement(suggestions);
+
+        const offItem = createCommandItem(COMMAND_ID_OFF, enabled ? '' : 'fa-check', 'off');
+        const onItem = createCommandItem(COMMAND_ID_ON, enabled ? 'fa-check' : '', 'on');
+
+        offItem.dataset.index = '0';
+        onItem.dataset.index = '1';
+
+        offItem.addEventListener('click', e => {
+            e.stopPropagation();
+            setEnabled(false);
+            updateSubmenuState(suggestions);
+        });
+
+        onItem.addEventListener('click', e => {
+            e.stopPropagation();
+            setEnabled(true);
+            updateSubmenuState(suggestions);
+        });
+
+        suggestions.appendChild(offItem);
+        suggestions.appendChild(onItem);
+    }
+
+    function exitSubmenu() {
+        inSubmenu = false;
+        setTimeout(() => {
+            document.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Escape',
+                code: 'Escape',
+                bubbles: true,
+                cancelable: true
+            }));
+        }, 0);
+    }
+
+    function handleCommandlineSearch() {
+        const input = document.querySelector('#commandLine .input');
+        const suggestions = document.querySelector('#commandLine .suggestions');
+        if (!input || !suggestions) return;
+
+        const query = input.value.toLowerCase().trim();
+
+        if (!query) {
+            injectCommandlineItem(suggestions);
+            return;
+        }
+
+        if ('hotlist'.startsWith(query)) {
+            let hotlistCmd = suggestions.querySelector(`[data-command-id="${COMMAND_ID}"]`);
+            if (!hotlistCmd) {
+                hotlistCmd = createCommandItem(COMMAND_ID, 'fa-highlighter', 'Hotlist...');
+                hotlistCmd.addEventListener('click', e => {
+                    e.stopPropagation();
+                    showHotlistSubmenu(suggestions);
+                });
+            }
+            suggestions.insertBefore(hotlistCmd, suggestions.firstChild);
+            setupHoverManagement(suggestions);
+            clearNativeActive(suggestions);
+        }
+    }
+
     function handleMutation(m) {
         if (m.type === 'childList') {
             const target = m.target;
@@ -614,9 +765,30 @@
                     continue;
                 }
 
+                if (node.classList?.contains('modal')) {
+                    const suggestions = node.querySelector('.suggestions');
+                    if (suggestions) {
+                        setTimeout(() => injectCommandlineItem(suggestions), 0);
+                    }
+                    continue;
+                }
+
+                if (node.classList?.contains('suggestions')) {
+                    setTimeout(() => injectCommandlineItem(node), 0);
+                    continue;
+                }
+
                 const words = node.querySelectorAll?.('.word');
                 if (words) {
                     for (const word of words) markDirty(word);
+                }
+
+                const modal = node.querySelector?.('.modal');
+                if (modal) {
+                    const suggestions = modal.querySelector('.suggestions');
+                    if (suggestions) {
+                        setTimeout(() => injectCommandlineItem(suggestions), 0);
+                    }
                 }
             }
         }
@@ -638,6 +810,21 @@
         for (const m of mutations) handleMutation(m);
         if (pending.size) scheduleFlush();
     });
+
+    document.addEventListener('input', e => {
+        if (e.target.matches('#commandLine .input')) {
+            if (inSubmenu) return;
+            setTimeout(handleCommandlineSearch, 50);
+        }
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && inSubmenu) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            exitSubmenu();
+        }
+    }, true);
 
     load();
     reapplyAll();
