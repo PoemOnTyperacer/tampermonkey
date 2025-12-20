@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Monkeytype: Hotlist
 // @namespace    http://tampermonkey.net/
-// @version      0.4.2
+// @version      0.4.3
 // @description  Highlight keywords in monkeytype tests
 // @author       poem#3305
 // @match        https://monkeytype.com/*
@@ -17,6 +17,7 @@
   const SEPARATOR = ';';
   const LISTS_SEPARATOR = '|';
   const STORAGE_KEY = 'HotlistDataItemV3';
+  const ENABLED_KEY = 'HotlistEnabled';
 
   let mainSet = new Set();
   let redSet = new Set();
@@ -26,6 +27,7 @@
   let redExact = [];
   let settingsVersion = 0;
   let menuCreated = false;
+  let enabled = true;
 
   const pending = new Set();
   let flushScheduled = false;
@@ -58,7 +60,7 @@
       display: grid;
       grid-template-columns: 2fr 1fr;
       grid-template-rows: auto 1fr;
-      grid-template-areas: "title title" "content content";
+      grid-template-areas: "title title" "text buttons" "content content";
       column-gap: 2rem;
       row-gap: 0.5rem;
       align-items: start;
@@ -67,15 +69,21 @@
     .section.hotlist.fullWidth .buttons { width: 100% !important; }
     .section.hotlist .groupTitle { grid-area: title; }
     .section.hotlist .text {
-      grid-area: unset;
-      grid-column: 1 / -1;
-      margin-bottom: 1rem;
+      grid-area: text;
+      margin-bottom: 0;
+    }
+    .section.hotlist .buttons {
+      grid-area: buttons;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
     }
     .section.hotlist .hotlistContent {
-      grid-column: 1 / -1;
+      grid-area: content;
       display: flex;
       flex-direction: column;
       gap: 1rem;
+      margin-top: 0.5rem;
     }
     .section.hotlist .hotlistColumns {
       padding-left: 3px;
@@ -211,10 +219,14 @@
     }
   `);
 
-  function save() {
+  function saveData() {
     const main = [...mainSet].join(SEPARATOR + ' ');
     const red = [...redSet].join(SEPARATOR + ' ');
     localStorage.setItem(STORAGE_KEY, `${main}${LISTS_SEPARATOR}${red}`);
+  }
+
+  function saveEnabled() {
+    localStorage.setItem(ENABLED_KEY, enabled ? '1' : '0');
   }
 
   function isExact(val) {
@@ -263,8 +275,12 @@
 
   function load() {
     const data = localStorage.getItem(STORAGE_KEY);
+    const enabledData = localStorage.getItem(ENABLED_KEY);
+
+    enabled = enabledData !== '0';
+
     if (data === null) {
-      save();
+      saveData();
       alert('Welcome to poem#3305\'s Hotlist mod\n===========================\n\nCustomize your highlighted words list in the "behavior" settings.\n\n(This message won\'t show again.)');
       parseStorage('');
     } else {
@@ -273,7 +289,7 @@
   }
 
   function commit() {
-    save();
+    saveData();
     rebuildLists();
     reapplyAll();
   }
@@ -352,6 +368,12 @@
 
     for (const letter of letters) {
       delete letter.dataset.hotlist;
+    }
+
+    if (!enabled) {
+      el.dataset.hotlistV = version;
+      el.dataset.hotlistW = word;
+      return;
     }
 
     const mainRanges = [
@@ -434,6 +456,23 @@
     );
   }
 
+  function updateToggleButtons() {
+    const offBtn = document.getElementById('hotlistOffBtn');
+    const onBtn = document.getElementById('hotlistOnBtn');
+    if (!offBtn || !onBtn) return;
+
+    offBtn.classList.toggle('active', !enabled);
+    onBtn.classList.toggle('active', enabled);
+  }
+
+  function setEnabled(val) {
+    enabled = val;
+    saveEnabled();
+    settingsVersion++;
+    updateToggleButtons();
+    reapplyAll();
+  }
+
   function addItem(input, set, exactToggle) {
     let val = input.value.trim();
     if (!val) return;
@@ -466,6 +505,10 @@
       <div class="text">
         Add substrings to highlight during tests. Click a chip to remove it.<br>
         <span style="opacity: 0.7">Use <b>exact</b> to match whole words only (e.g. "a" won't match inside "cat").</span>
+      </div>
+      <div class="buttons">
+        <button id="hotlistOffBtn">off</button>
+        <button id="hotlistOnBtn">on</button>
       </div>
       <div class="hotlistContent">
         <div class="hotlistColumns">
@@ -519,6 +562,9 @@
     document.getElementById('hotlistClear').onclick = () => clearList(mainSet);
     document.getElementById('redHotlistClear').onclick = () => clearList(redSet);
 
+    document.getElementById('hotlistOffBtn').onclick = () => setEnabled(false);
+    document.getElementById('hotlistOnBtn').onclick = () => setEnabled(true);
+
     mainInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -533,6 +579,7 @@
       }
     });
 
+    updateToggleButtons();
     renderAll();
     menuCreated = true;
   }
