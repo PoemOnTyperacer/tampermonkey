@@ -1,140 +1,533 @@
 // ==UserScript==
 // @name         Monkeytype: Hotlist
 // @namespace    http://tampermonkey.net/
-// @version      0.1.0
-// @updateURL    https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/mt_hotlist.user.js
-// @downloadURL  https://raw.githubusercontent.com/PoemOnTyperacer/tampermonkey/master/mt_hotlist.user.js
-// @description  Highlight words of your choosing in monkeytype tests
+// @version      0.4.0
+// @description  Highlight keywords in monkeytype tests
 // @author       poem#3305
 // @match        https://monkeytype.com/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=monkeytype.com
 // @grant        GM_addStyle
 // @noframes
 // ==/UserScript==
 
-const DEBUG = false;
-const THEME='var(--main-color)';
-const SEPARATOR=';'
-const HL_DATA_ITEM='HotlistDataItemV2'
-const WELCOME_MESSAGE='Customize your highlighted words list in the "behavior" settings.';
-const GLOW_MULTIPLIER = 1.3; // overflow hidden over 1.3
-const GLOW_MULTIPLIER_BIS = 0.6;
-let createdMenu=false;
-let HIGHLIGHT_LIST = [];
-function log(msg){
-    if(DEBUG)
-        console.log('[Hotlist] '+msg)
-}
+(function() {
+  'use strict';
 
-function storeData(data) {
-    log("Storing settings data: "+data);
-    window.localStorage.setItem(HL_DATA_ITEM,data);
-}
+  const MAIN_COLOR = 'var(--main-color)';
+  const RED_COLOR = '#EE4B2B';
+  const SEPARATOR = ';';
+  const LISTS_SEPARATOR = '|';
+  const STORAGE_KEY = 'HotlistDataItemV3';
 
-function loadData() {
-    let data = window.localStorage.getItem(HL_DATA_ITEM);
-    let message="Welcome to poem#3305's Hotlist mod\n===========================\n\n"+WELCOME_MESSAGE+"\n\n(This message won't show again.)";
-    if(data===null) {
-        log('No existing settings data found -- creating default');
-        storeData('');
-        window.alert(message);
-        return;
+  let mainSet = new Set();
+  let redSet = new Set();
+  let mainList = [];
+  let redList = [];
+  let settingsVersion = 0;
+  let menuCreated = false;
+
+  const pending = new Set();
+  let flushScheduled = false;
+  const lettersCache = new WeakMap();
+
+  GM_addStyle(`
+    .word letter[data-hotlist="main"] {
+      filter: drop-shadow(0 0 1px ${MAIN_COLOR}) drop-shadow(0 0 3px ${MAIN_COLOR}) !important;
+      -webkit-text-stroke: 0.35px rgba(255,255,255,0.55) !important;
+      text-shadow: 0 0 2px ${MAIN_COLOR}, 0 0 4px ${MAIN_COLOR} !important;
+    }
+    .word letter[data-hotlist="red"] {
+      filter: drop-shadow(0 0 1px ${RED_COLOR}) drop-shadow(0 0 3px ${RED_COLOR}) !important;
+      -webkit-text-stroke: 0.35px rgba(255,255,255,0.55) !important;
+      text-shadow: 0 0 2px ${RED_COLOR}, 0 0 4px ${RED_COLOR} !important;
+    }
+    .word.nocursor letter[data-hotlist="main"] {
+      filter: drop-shadow(0 0 2px ${MAIN_COLOR}) !important;
+      -webkit-text-stroke: 0.3px rgba(255,255,255,0.45) !important;
+      text-shadow: 0 0 3px ${MAIN_COLOR} !important;
+    }
+    .word.nocursor letter[data-hotlist="red"] {
+      filter: drop-shadow(0 0 2px ${RED_COLOR}) !important;
+      -webkit-text-stroke: 0.3px rgba(255,255,255,0.45) !important;
+      text-shadow: 0 0 3px ${RED_COLOR} !important;
     }
 
-    if(data=='') {
-        log('loaded data: highlight list is empty');
-        HIGHLIGHT_LIST=[];
-        return;
+    .section.hotlist.fullWidth {
+      width: 100% !important;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      grid-template-rows: auto 1fr;
+      grid-template-areas: "title title" "content content";
+      column-gap: 2rem;
+      row-gap: 0.5rem;
+      align-items: start;
     }
-    else {
-        HIGHLIGHT_LIST=data.split(';').map(function(e) {return e.trim();});
-        log('loaded highlight list: '+HIGHLIGHT_LIST);
+    .section.hotlist.fullWidth .inputs,
+    .section.hotlist.fullWidth .buttons { width: 100% !important; }
+    .section.hotlist .groupTitle { grid-area: title; }
+    .section.hotlist .text {
+      grid-area: unset;
+      grid-column: 1 / -1;
+      margin-bottom: 1rem;
     }
-}
-loadData();
+    .section.hotlist .hotlistContent {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .section.hotlist .hotlistColumns {
+      padding-left: 3px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+    .section.hotlist .hotlistColumn {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .section.hotlist .hotlistMetaRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--sub-color);
+    }
+    .section.hotlist .hotlistMetaRow .left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .section.hotlist .hotlistMetaRow .swatch {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 0.2rem;
+      background: var(--main-color);
+    }
+    .section.hotlist .hotlistMetaRow .swatch.red { background: ${RED_COLOR}; }
+    .section.hotlist .hotlistMetaRow .count { opacity: 0.7; }
+    .section.hotlist .hotlistAddRow {
+      display: flex;
+      gap: 0.5rem;
+      align-items: stretch;
+    }
+    .section.hotlist .hotlistAddRow input.input {
+      flex: 1;
+      min-width: 0;
+      height: 2.5rem;
+      padding: 0 0.75rem;
+      border-radius: var(--roundness);
+      background: var(--sub-alt-color);
+      border: none;
+      color: var(--text-color);
+      font-size: 1rem;
+      font-family: var(--font);
+    }
+    .section.hotlist .hotlistAddRow input.input::placeholder {
+      color: var(--sub-color);
+      opacity: 0.5;
+    }
+    .section.hotlist .hotlistAddRow button {
+      height: 2.5rem;
+      width: 2.5rem;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .section.hotlist .hotlistAddRow button i { line-height: 1; }
+    .section.hotlist .hotlistChips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      min-height: 3rem;
+      max-height: 16rem;
+      overflow-y: auto;
+      padding: 0.25rem 0;
+      align-content: flex-start;
+    }
+    .section.hotlist .hotlistChips:empty::after {
+      content: 'No items yet';
+      color: var(--sub-color);
+      opacity: 0.4;
+      font-style: italic;
+    }
+    .section.hotlist .hotlistChip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      height: 2rem;
+      padding: 0 0.75rem;
+      border-radius: var(--roundness);
+      background: var(--sub-alt-color);
+      color: var(--text-color);
+      font-size: 0.875rem;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: background 0.125s, color 0.125s;
+    }
+    .section.hotlist .hotlistChip:hover {
+      color: var(--bg-color);
+      background: var(--text-color);
+    }
+    .section.hotlist .hotlistChip i {
+      font-size: 0.75rem;
+      opacity: 0.7;
+    }
+    .section.hotlist .hotlistChip:hover i { opacity: 1; }
+    .section.hotlist .hotlistButtons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .section.hotlist .hotlistButtons button { width: 100%; }
+    @media (max-width: 700px) {
+      .section.hotlist .hotlistColumns { grid-template-columns: 1fr; }
+      .section.hotlist .hotlistButtons { grid-template-columns: 1fr; }
+    }
+  `);
 
-GM_addStyle(`
-.glow {
-  -webkit-animation: glow 1s ease-in-out infinite alternate;
-  -moz-animation: glow 1s ease-in-out infinite alternate;
-  animation: glow 1s ease-in-out infinite alternate;
-  z-index:-2;
-}
-
-@-webkit-keyframes glow {
-  from {
-    text-shadow: 0 0 `+(GLOW_MULTIPLIER)+`px #fff, 0 0 `+(2*GLOW_MULTIPLIER)+`px #fff, 0 0 `+(3*GLOW_MULTIPLIER)+`px `+THEME+`, 0 0 `+(4*GLOW_MULTIPLIER)+`px `+THEME+`, 0 0 `+(5*GLOW_MULTIPLIER)+`px `+THEME+`, 0 0 `+(6*GLOW_MULTIPLIER)+`px `+THEME+`, 0 0 `+(7*GLOW_MULTIPLIER)+`px `+THEME+`;
+  function save(data) {
+    localStorage.setItem(STORAGE_KEY, data);
   }
-  to {
-      text-shadow: 0 0 `+(2*GLOW_MULTIPLIER_BIS)+`px #fff, 0 0 `+(3*GLOW_MULTIPLIER_BIS)+`px `+THEME+`, 0 0 `+(4*GLOW_MULTIPLIER_BIS)+`px `+THEME+`, 0 0 `+(5*GLOW_MULTIPLIER_BIS)+`px `+THEME+`, 0 0 `+(6*GLOW_MULTIPLIER_BIS)+`px `+THEME+`, 0 0 `+(7*GLOW_MULTIPLIER_BIS)+`px `+THEME+`, 0 0 `+(8*GLOW_MULTIPLIER_BIS)+`px `+THEME+`;
+
+  function rebuildLists() {
+    mainList = [...mainSet].sort((a, b) => b.length - a.length);
+    redList = [...redSet].sort((a, b) => b.length - a.length);
+    settingsVersion++;
   }
-}
-`);
-const SETTINGS_HTML=`
-   <div class="groupTitle"><i class="fas fa-exclamation"></i> <span>hotlist</span></div>
-   <div class="text">Custom list of words to be highlighted during tests.</div>
-   <div class="inputs">
-      <div class="inputAndButton">
-         <input id="hotlistInputField" type="text" placeholder="placeholder; word; list" class="input customHotlist" value="`+HIGHLIGHT_LIST.join('; ')+`">
-         <div id="hotlistSaveButton" class="button save" tabindex="0" ><i class="fas fa-save fa-fw"></i></div>
+
+  function parseStorage(data) {
+    if (!data || data === LISTS_SEPARATOR) {
+      mainSet = new Set();
+      redSet = new Set();
+    } else {
+      const [main = '', red = ''] = data.split(LISTS_SEPARATOR);
+      const parse = s => s.split(SEPARATOR).map(x => x.trim()).filter(Boolean);
+      mainSet = new Set(parse(main));
+      redSet = new Set(parse(red));
+    }
+    rebuildLists();
+  }
+
+  function load() {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data === null) {
+      save('');
+      alert('Welcome to poem#3305\'s Hotlist mod\n===========================\n\nCustomize your highlighted words list in the "behavior" settings.\n\n(This message won\'t show again.)');
+      parseStorage('');
+    } else {
+      parseStorage(data);
+    }
+  }
+
+  function persistSets() {
+    const main = [...mainSet].join(SEPARATOR + ' ');
+    const red = [...redSet].join(SEPARATOR + ' ');
+    save(`${main}${LISTS_SEPARATOR}${red}`);
+  }
+
+  function findAllOccurrences(text, needles) {
+    const ranges = [];
+    for (const needle of needles) {
+      if (!needle) continue;
+      let idx = text.indexOf(needle);
+      while (idx !== -1) {
+        ranges.push([idx, idx + needle.length]);
+        idx = text.indexOf(needle, idx + 1);
+      }
+    }
+    return ranges;
+  }
+
+  function mergeRanges(ranges) {
+    if (ranges.length <= 1) return ranges;
+    ranges.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const merged = [ranges[0]];
+    for (let i = 1; i < ranges.length; i++) {
+      const last = merged[merged.length - 1];
+      const cur = ranges[i];
+      if (cur[0] <= last[1]) {
+        last[1] = Math.max(last[1], cur[1]);
+      } else {
+        merged.push(cur);
+      }
+    }
+    return merged;
+  }
+
+  function getLetters(wordEl) {
+    let cached = lettersCache.get(wordEl);
+    if (cached) return cached;
+    const nodes = wordEl.getElementsByTagName('letter');
+    const arr = Array.from(nodes);
+    lettersCache.set(wordEl, arr);
+    return arr;
+  }
+
+  function applyHighlights(letters, ranges, mark) {
+    const len = letters.length;
+    for (const [start, end] of ranges) {
+      for (let i = Math.max(0, start); i < Math.min(end, len); i++) {
+        letters[i].dataset.hotlist = mark;
+      }
+    }
+  }
+
+  function processWord(el) {
+    const version = String(settingsVersion);
+
+    if (el.dataset.hotlistDirty === '1') {
+      delete el.dataset.hotlistDirty;
+    } else {
+      const word = el.textContent || '';
+      if (el.dataset.hotlistV === version && el.dataset.hotlistW === word) return;
+    }
+
+    const word = el.textContent || '';
+    const letters = getLetters(el);
+
+    if (!letters.length) {
+      el.dataset.hotlistV = version;
+      el.dataset.hotlistW = word;
+      return;
+    }
+
+    for (const letter of letters) {
+      delete letter.dataset.hotlist;
+    }
+
+    if (mainList.length) {
+      const ranges = findAllOccurrences(word, mainList);
+      if (ranges.length) {
+        applyHighlights(letters, mergeRanges(ranges), 'main');
+        el.dataset.hotlistV = version;
+        el.dataset.hotlistW = word;
+        return;
+      }
+    }
+
+    if (redList.length) {
+      const ranges = findAllOccurrences(word, redList);
+      if (ranges.length) {
+        applyHighlights(letters, mergeRanges(ranges), 'red');
+      }
+    }
+
+    el.dataset.hotlistV = version;
+    el.dataset.hotlistW = word;
+  }
+
+  function flush() {
+    flushScheduled = false;
+    for (const el of pending) processWord(el);
+    pending.clear();
+  }
+
+  function scheduleFlush() {
+    if (flushScheduled) return;
+    flushScheduled = true;
+    requestAnimationFrame(flush);
+  }
+
+  function markDirty(wordEl) {
+    wordEl.dataset.hotlistDirty = '1';
+    pending.add(wordEl);
+  }
+
+  function reapplyAll() {
+    const words = document.getElementsByClassName('word');
+    for (const word of words) markDirty(word);
+    if (pending.size) scheduleFlush();
+  }
+
+  function renderChips(container, set, countEl) {
+    container.textContent = '';
+    countEl.textContent = String(set.size);
+    for (const val of set) {
+      const chip = document.createElement('div');
+      chip.className = 'hotlistChip';
+      chip.innerHTML = `<i class="fas fa-times fa-fw"></i><span>${val}</span>`;
+      chip.title = 'Click to remove';
+      chip.onclick = () => {
+        set.delete(val);
+        persistSets();
+        renderAll();
+      };
+      container.appendChild(chip);
+    }
+  }
+
+  function renderAll() {
+    renderChips(
+      document.getElementById('hotlistChips'),
+      mainSet,
+      document.getElementById('hotlistCount')
+    );
+    renderChips(
+      document.getElementById('redHotlistChips'),
+      redSet,
+      document.getElementById('redHotlistCount')
+    );
+  }
+
+  function addItem(input, set) {
+    const val = input.value.trim();
+    if (!val) return;
+    set.add(val);
+    input.value = '';
+    persistSets();
+    renderAll();
+  }
+
+  function createMenu() {
+    if (menuCreated) return;
+
+    const sections = document.getElementsByClassName('behavior');
+    if (!sections.length) return;
+
+    const container = document.createElement('div');
+    container.className = 'section hotlist fullWidth';
+    container.innerHTML = `
+      <div class="groupTitle">
+        <i class="fas fa-highlighter"></i> <span>hotlist</span>
       </div>
-   </div>`;
+      <div class="text">
+        Add substrings to highlight during tests. Click a chip to remove it.
+      </div>
+      <div class="hotlistContent">
+        <div class="hotlistColumns">
+          <div class="hotlistColumn">
+            <div class="hotlistMetaRow">
+              <div class="left"><span class="swatch"></span><span>main list</span></div>
+              <div class="count"><span id="hotlistCount">0</span> items</div>
+            </div>
+            <div class="hotlistAddRow">
+              <input id="hotlistAddInput" class="input" type="text" spellcheck="false" placeholder="Add item… (Enter)">
+              <button id="hotlistAddButton" tabindex="0"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="hotlistChips" class="hotlistChips"></div>
+          </div>
+          <div class="hotlistColumn">
+            <div class="hotlistMetaRow">
+              <div class="left"><span class="swatch red"></span><span>red list</span></div>
+              <div class="count"><span id="redHotlistCount">0</span> items</div>
+            </div>
+            <div class="hotlistAddRow">
+              <input id="redHotlistAddInput" class="input" type="text" spellcheck="false" placeholder="Add item… (Enter)">
+              <button id="redHotlistAddButton" tabindex="0"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="redHotlistChips" class="hotlistChips"></div>
+          </div>
+        </div>
+        <div class="hotlistButtons">
+          <button id="hotlistSaveButton">save</button>
+          <button id="hotlistApplyButton">apply now</button>
+          <button id="hotlistClearButton">clear all</button>
+        </div>
+      </div>
+    `;
 
-const ELEMENT_CONFIG = {childList: true, subtree: true, attributes: true, characterData: false};
-function elementMutate(mutations_list) {
-    for(let j=0;j<mutations_list.length;j++) {
-        let mutation=mutations_list[j];
-        for(let i=0;i<mutation.addedNodes.length;i++) {
-            let added_node=mutation.addedNodes[i];
-            let classList=added_node.classList;
-            if(classList==undefined)
-                continue;
-            if(classList.contains('pageSettings')) {
-                insertCustomHTML();
-            }
-            if(classList.contains('word'))
-                onNewWord(added_node);
-        }
-    }
-}
-const elementObserver = new MutationObserver(elementMutate);
-elementObserver.observe(document.body, ELEMENT_CONFIG);
+    sections[0].insertBefore(container, sections[0].firstChild);
 
-function insertCustomHTML() {
-    if(createdMenu)
-        return;
-    let sections=document.getElementsByClassName('behavior');
-    if(sections.length==0)
-        return;
-    let section=sections[0];
-    let customDiv=document.createElement('div');
-    customDiv.classList.add('section');
-    customDiv.classList.add('hotlist');
-    customDiv.innerHTML=SETTINGS_HTML;
-    section.insertBefore(customDiv, section.firstChild);
+    const mainInput = document.getElementById('hotlistAddInput');
+    const redInput = document.getElementById('redHotlistAddInput');
 
-    let saveButton=document.getElementById('hotlistSaveButton');
-    saveButton.onclick = function() {
-        let hotlistInputField=document.getElementById('hotlistInputField');
-        log('save button clicked ; loading and saving input field value='+hotlistInputField.value);
-        storeData(hotlistInputField.value);
-        loadData();
-        this.blur();
+    document.getElementById('hotlistAddButton').onclick = () => addItem(mainInput, mainSet);
+    document.getElementById('redHotlistAddButton').onclick = () => addItem(redInput, redSet);
+
+    mainInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addItem(mainInput, mainSet);
+      }
+    });
+
+    redInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addItem(redInput, redSet);
+      }
+    });
+
+    document.getElementById('hotlistSaveButton').onclick = persistSets;
+    document.getElementById('hotlistApplyButton').onclick = reapplyAll;
+    document.getElementById('hotlistClearButton').onclick = () => {
+      mainSet.clear();
+      redSet.clear();
+      persistSets();
+      renderAll();
+      reapplyAll();
     };
-    createdMenu=true;
-}
 
-function onNewWord(word) {
-    if(word.parentNode.id!='words')
-        return;
-    if(!word.classList.contains('glow')) {
-        let wordContent='';
-        let letters=word.childNodes;
-        for(let j=0;j<letters.length;j++) {
-            wordContent+=letters[j].innerText;
+    renderAll();
+    menuCreated = true;
+  }
+
+  function handleMutation(m) {
+    if (m.type === 'childList') {
+      const target = m.target;
+
+      if (target && target.nodeType === 1) {
+        const wordEl = target.classList?.contains('word')
+          ? target
+          : target.closest?.('.word');
+
+        if (wordEl) {
+          lettersCache.delete(wordEl);
+          markDirty(wordEl);
+          return;
         }
-        if(HIGHLIGHT_LIST.includes(wordContent)) {
-            word.classList.add('glow');
+      }
+
+      for (const node of m.addedNodes) {
+        if (!node || node.nodeType !== 1) continue;
+
+        if (node.classList?.contains('word')) {
+          markDirty(node);
+          continue;
         }
+
+        if (node.classList?.contains('pageSettings')) {
+          createMenu();
+          continue;
+        }
+
+        const words = node.querySelectorAll?.('.word');
+        if (words) {
+          for (const word of words) markDirty(word);
+        }
+      }
     }
-}
+
+    if (m.type === 'attributes' && m.attributeName === 'class') {
+      const target = m.target;
+      if (!target || target.nodeType !== 1) return;
+
+      if (target.classList?.contains('word')) {
+        markDirty(target);
+      } else if (target.tagName === 'LETTER') {
+        const word = target.closest?.('.word');
+        if (word) markDirty(word);
+      }
+    }
+  }
+
+  const observer = new MutationObserver(mutations => {
+    for (const m of mutations) handleMutation(m);
+    if (pending.size) scheduleFlush();
+  });
+
+  load();
+  reapplyAll();
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class']
+  });
+
+  window.addEventListener('beforeunload', () => observer.disconnect());
+})();
