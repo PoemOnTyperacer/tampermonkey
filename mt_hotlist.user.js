@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Monkeytype: Hotlist
 // @namespace    http://tampermonkey.net/
-// @version      0.4.0
+// @version      0.4.2
 // @description  Highlight keywords in monkeytype tests
 // @author       poem#3305
 // @match        https://monkeytype.com/*
@@ -22,6 +22,8 @@
   let redSet = new Set();
   let mainList = [];
   let redList = [];
+  let mainExact = [];
+  let redExact = [];
   let settingsVersion = 0;
   let menuCreated = false;
 
@@ -97,6 +99,11 @@
       align-items: center;
       gap: 0.5rem;
     }
+    .section.hotlist .hotlistMetaRow .right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
     .section.hotlist .hotlistMetaRow .swatch {
       width: 0.75rem;
       height: 0.75rem;
@@ -105,6 +112,13 @@
     }
     .section.hotlist .hotlistMetaRow .swatch.red { background: ${RED_COLOR}; }
     .section.hotlist .hotlistMetaRow .count { opacity: 0.7; }
+    .section.hotlist .hotlistMetaRow .clearBtn {
+      opacity: 0.5;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: opacity 0.125s;
+    }
+    .section.hotlist .hotlistMetaRow .clearBtn:hover { opacity: 1; }
     .section.hotlist .hotlistAddRow {
       display: flex;
       gap: 0.5rem;
@@ -136,6 +150,17 @@
       flex-shrink: 0;
     }
     .section.hotlist .hotlistAddRow button i { line-height: 1; }
+    .section.hotlist .hotlistAddRow .exactToggle {
+      width: auto;
+      padding: 0 0.75rem;
+      font-size: 0.8rem;
+      opacity: 0.5;
+    }
+    .section.hotlist .hotlistAddRow .exactToggle.active {
+      opacity: 1;
+      background: var(--main-color);
+      color: var(--bg-color);
+    }
     .section.hotlist .hotlistChips {
       display: flex;
       flex-wrap: wrap;
@@ -176,25 +201,50 @@
       opacity: 0.7;
     }
     .section.hotlist .hotlistChip:hover i { opacity: 1; }
-    .section.hotlist .hotlistButtons {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.5rem;
+    .section.hotlist .hotlistChip .exactBadge {
+      font-size: 0.625rem;
+      opacity: 0.6;
+      margin-left: 0.1rem;
     }
-    .section.hotlist .hotlistButtons button { width: 100%; }
     @media (max-width: 700px) {
       .section.hotlist .hotlistColumns { grid-template-columns: 1fr; }
-      .section.hotlist .hotlistButtons { grid-template-columns: 1fr; }
     }
   `);
 
-  function save(data) {
-    localStorage.setItem(STORAGE_KEY, data);
+  function save() {
+    const main = [...mainSet].join(SEPARATOR + ' ');
+    const red = [...redSet].join(SEPARATOR + ' ');
+    localStorage.setItem(STORAGE_KEY, `${main}${LISTS_SEPARATOR}${red}`);
+  }
+
+  function isExact(val) {
+    return val.startsWith('"') && val.endsWith('"') && val.length > 2;
+  }
+
+  function unwrap(val) {
+    return isExact(val) ? val.slice(1, -1) : val;
+  }
+
+  function wrap(val) {
+    return `"${val}"`;
   }
 
   function rebuildLists() {
-    mainList = [...mainSet].sort((a, b) => b.length - a.length);
-    redList = [...redSet].sort((a, b) => b.length - a.length);
+    mainList = [];
+    mainExact = [];
+    redList = [];
+    redExact = [];
+
+    for (const val of mainSet) {
+      (isExact(val) ? mainExact : mainList).push(unwrap(val));
+    }
+
+    for (const val of redSet) {
+      (isExact(val) ? redExact : redList).push(unwrap(val));
+    }
+
+    mainList.sort((a, b) => b.length - a.length);
+    redList.sort((a, b) => b.length - a.length);
     settingsVersion++;
   }
 
@@ -214,7 +264,7 @@
   function load() {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data === null) {
-      save('');
+      save();
       alert('Welcome to poem#3305\'s Hotlist mod\n===========================\n\nCustomize your highlighted words list in the "behavior" settings.\n\n(This message won\'t show again.)');
       parseStorage('');
     } else {
@@ -222,13 +272,13 @@
     }
   }
 
-  function persistSets() {
-    const main = [...mainSet].join(SEPARATOR + ' ');
-    const red = [...redSet].join(SEPARATOR + ' ');
-    save(`${main}${LISTS_SEPARATOR}${red}`);
+  function commit() {
+    save();
+    rebuildLists();
+    reapplyAll();
   }
 
-  function findAllOccurrences(text, needles) {
+  function findSubstringRanges(text, needles) {
     const ranges = [];
     for (const needle of needles) {
       if (!needle) continue;
@@ -239,6 +289,13 @@
       }
     }
     return ranges;
+  }
+
+  function findExactRanges(text, words) {
+    for (const word of words) {
+      if (text === word) return [[0, text.length]];
+    }
+    return [];
   }
 
   function mergeRanges(ranges) {
@@ -260,8 +317,7 @@
   function getLetters(wordEl) {
     let cached = lettersCache.get(wordEl);
     if (cached) return cached;
-    const nodes = wordEl.getElementsByTagName('letter');
-    const arr = Array.from(nodes);
+    const arr = Array.from(wordEl.getElementsByTagName('letter'));
     lettersCache.set(wordEl, arr);
     return arr;
   }
@@ -298,21 +354,25 @@
       delete letter.dataset.hotlist;
     }
 
-    if (mainList.length) {
-      const ranges = findAllOccurrences(word, mainList);
-      if (ranges.length) {
-        applyHighlights(letters, mergeRanges(ranges), 'main');
-        el.dataset.hotlistV = version;
-        el.dataset.hotlistW = word;
-        return;
-      }
+    const mainRanges = [
+      ...findExactRanges(word, mainExact),
+      ...findSubstringRanges(word, mainList)
+    ];
+
+    if (mainRanges.length) {
+      applyHighlights(letters, mergeRanges(mainRanges), 'main');
+      el.dataset.hotlistV = version;
+      el.dataset.hotlistW = word;
+      return;
     }
 
-    if (redList.length) {
-      const ranges = findAllOccurrences(word, redList);
-      if (ranges.length) {
-        applyHighlights(letters, mergeRanges(ranges), 'red');
-      }
+    const redRanges = [
+      ...findExactRanges(word, redExact),
+      ...findSubstringRanges(word, redList)
+    ];
+
+    if (redRanges.length) {
+      applyHighlights(letters, mergeRanges(redRanges), 'red');
     }
 
     el.dataset.hotlistV = version;
@@ -348,11 +408,13 @@
     for (const val of set) {
       const chip = document.createElement('div');
       chip.className = 'hotlistChip';
-      chip.innerHTML = `<i class="fas fa-times fa-fw"></i><span>${val}</span>`;
+      const display = unwrap(val);
+      const badge = isExact(val) ? '<span class="exactBadge">[exact]</span>' : '';
+      chip.innerHTML = `<i class="fas fa-times fa-fw"></i><span>${display}</span>${badge}`;
       chip.title = 'Click to remove';
       chip.onclick = () => {
         set.delete(val);
-        persistSets();
+        commit();
         renderAll();
       };
       container.appendChild(chip);
@@ -372,12 +434,20 @@
     );
   }
 
-  function addItem(input, set) {
-    const val = input.value.trim();
+  function addItem(input, set, exactToggle) {
+    let val = input.value.trim();
     if (!val) return;
+    if (exactToggle.classList.contains('active')) val = wrap(val);
     set.add(val);
     input.value = '';
-    persistSets();
+    commit();
+    renderAll();
+  }
+
+  function clearList(set) {
+    if (!set.size) return;
+    set.clear();
+    commit();
     renderAll();
   }
 
@@ -394,17 +464,22 @@
         <i class="fas fa-highlighter"></i> <span>hotlist</span>
       </div>
       <div class="text">
-        Add substrings to highlight during tests. Click a chip to remove it.
+        Add substrings to highlight during tests. Click a chip to remove it.<br>
+        <span style="opacity: 0.7">Use <b>exact</b> to match whole words only (e.g. "a" won't match inside "cat").</span>
       </div>
       <div class="hotlistContent">
         <div class="hotlistColumns">
           <div class="hotlistColumn">
             <div class="hotlistMetaRow">
               <div class="left"><span class="swatch"></span><span>main list</span></div>
-              <div class="count"><span id="hotlistCount">0</span> items</div>
+              <div class="right">
+                <span class="count"><span id="hotlistCount">0</span> items</span>
+                <span id="hotlistClear" class="clearBtn" title="Clear all">clear</span>
+              </div>
             </div>
             <div class="hotlistAddRow">
               <input id="hotlistAddInput" class="input" type="text" spellcheck="false" placeholder="Add item… (Enter)">
+              <button id="hotlistExactToggle" class="exactToggle" tabindex="0">exact</button>
               <button id="hotlistAddButton" tabindex="0"><i class="fas fa-plus"></i></button>
             </div>
             <div id="hotlistChips" class="hotlistChips"></div>
@@ -412,19 +487,18 @@
           <div class="hotlistColumn">
             <div class="hotlistMetaRow">
               <div class="left"><span class="swatch red"></span><span>red list</span></div>
-              <div class="count"><span id="redHotlistCount">0</span> items</div>
+              <div class="right">
+                <span class="count"><span id="redHotlistCount">0</span> items</span>
+                <span id="redHotlistClear" class="clearBtn" title="Clear all">clear</span>
+              </div>
             </div>
             <div class="hotlistAddRow">
               <input id="redHotlistAddInput" class="input" type="text" spellcheck="false" placeholder="Add item… (Enter)">
+              <button id="redHotlistExactToggle" class="exactToggle" tabindex="0">exact</button>
               <button id="redHotlistAddButton" tabindex="0"><i class="fas fa-plus"></i></button>
             </div>
             <div id="redHotlistChips" class="hotlistChips"></div>
           </div>
-        </div>
-        <div class="hotlistButtons">
-          <button id="hotlistSaveButton">save</button>
-          <button id="hotlistApplyButton">apply now</button>
-          <button id="hotlistClearButton">clear all</button>
         </div>
       </div>
     `;
@@ -433,33 +507,31 @@
 
     const mainInput = document.getElementById('hotlistAddInput');
     const redInput = document.getElementById('redHotlistAddInput');
+    const mainExactToggle = document.getElementById('hotlistExactToggle');
+    const redExactToggle = document.getElementById('redHotlistExactToggle');
 
-    document.getElementById('hotlistAddButton').onclick = () => addItem(mainInput, mainSet);
-    document.getElementById('redHotlistAddButton').onclick = () => addItem(redInput, redSet);
+    mainExactToggle.onclick = () => mainExactToggle.classList.toggle('active');
+    redExactToggle.onclick = () => redExactToggle.classList.toggle('active');
+
+    document.getElementById('hotlistAddButton').onclick = () => addItem(mainInput, mainSet, mainExactToggle);
+    document.getElementById('redHotlistAddButton').onclick = () => addItem(redInput, redSet, redExactToggle);
+
+    document.getElementById('hotlistClear').onclick = () => clearList(mainSet);
+    document.getElementById('redHotlistClear').onclick = () => clearList(redSet);
 
     mainInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        addItem(mainInput, mainSet);
+        addItem(mainInput, mainSet, mainExactToggle);
       }
     });
 
     redInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        addItem(redInput, redSet);
+        addItem(redInput, redSet, redExactToggle);
       }
     });
-
-    document.getElementById('hotlistSaveButton').onclick = persistSets;
-    document.getElementById('hotlistApplyButton').onclick = reapplyAll;
-    document.getElementById('hotlistClearButton').onclick = () => {
-      mainSet.clear();
-      redSet.clear();
-      persistSets();
-      renderAll();
-      reapplyAll();
-    };
 
     renderAll();
     menuCreated = true;
