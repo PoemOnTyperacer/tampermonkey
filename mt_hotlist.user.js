@@ -29,7 +29,6 @@
     let mainExact = [];
     let redExact = [];
     let settingsVersion = 0;
-    let menuCreated = false;
     let enabled = true;
 
     const pending = new Set();
@@ -503,13 +502,18 @@
     }
 
     function createMenu() {
-        if (menuCreated) return;
+        const hotlistId = 'mtHotlistMenu';
+        if (document.getElementById(hotlistId)) return;
 
-        const sections = document.getElementsByClassName('behavior');
-        if (!sections.length) return;
+        const sections = document.getElementById('group_behavior');
+        if (!sections) {
+            alert("cannot find section for behavior");
+            return;
+        }
 
         const container = document.createElement('div');
         container.className = 'section hotlist fullWidth';
+        container.id = hotlistId;
         container.innerHTML = `
       <div class="groupTitle">
         <i class="fas fa-highlighter"></i> <span>hotlist</span>
@@ -558,7 +562,7 @@
       </div>
     `;
 
-        sections[0].insertBefore(container, sections[0].firstChild);
+        sections.prepend(container);
 
         const mainInput = document.getElementById('hotlistAddInput');
         const redInput = document.getElementById('redHotlistAddInput');
@@ -593,7 +597,6 @@
 
         updateToggleButtons();
         renderAll();
-        menuCreated = true;
     }
 
     let inSubmenu = false;
